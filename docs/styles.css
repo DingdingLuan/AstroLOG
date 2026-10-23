@@ -26,6 +26,9 @@
   --token-success: #166534;
   --token-number: #5b21b6;
   --token-key: #9a3412;
+  --machine-bg: #e7eff8;
+  --machine-border: #cad8e9;
+  --machine-text: #315477;
   --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -56,6 +59,9 @@ html[data-theme="dark"] {
   --token-success: #98c6a6;
   --token-number: #c8afe2;
   --token-key: #d4b38c;
+  --machine-bg: #23313d;
+  --machine-border: #3a536c;
+  --machine-text: #afc9df;
 }
 * { box-sizing: border-box; }
 html { height: 100%; scrollbar-color: var(--border) transparent; scrollbar-width: thin; }
@@ -93,8 +99,10 @@ svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width:
 .tab-count { font-size: 10px; font-family: var(--mono); line-height: 1.4; padding: 2px 5px; background: var(--border-soft); border: 1px solid var(--border); color: var(--muted); border-radius: 5px; }
 .connection-state { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--muted); font-size: 11px; white-space: nowrap; }
 #connection-label { flex: none; }
-.connection-server { min-width: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
-.connection-server::before { content: "·"; margin-right: 7px; color: var(--dim); }
+.connection-server { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 180px; min-height: 24px; padding: 3px 8px; border: 1px solid var(--machine-border); border-radius: 999px; background: var(--machine-bg); color: var(--machine-text); font: 11px/1.35 var(--mono); }
+.connection-server svg { width: 13px; height: 13px; flex: none; stroke-width: 1.6; }
+.connection-server-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 480px) { .connection-server { gap: 4px; min-height: 22px; padding: 2px 6px; font-size: 10px; }.connection-server svg { width: 12px; height: 12px; } }
 .status-dot { width: 6px; height: 6px; background: var(--dim); border-radius: 50%; display: inline-block; flex: none; }
 .status-dot.live { background: var(--green); }
 .status-dot.warning { background: var(--warning); }

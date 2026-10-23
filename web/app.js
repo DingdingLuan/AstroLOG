@@ -143,8 +143,8 @@
   }
   function renderServerName() {
     const name = state.config?.display?.server_name || "";
-    $("connection-server").textContent = name;
-    $("connection-server").title = name;
+    $("connection-server-name").textContent = name;
+    $("connection-server").title = name ? `Server: ${name}` : "";
     $("connection-server").hidden = !name;
   }
   function connection(connected, label) {
