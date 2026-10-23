@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "astrolog-viewer"
+version = "0.3.0"
+description = "A configurable, read-only live log viewer for long-running work"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [{name = "DingdingLuan"}]
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
+  "sse-starlette>=2.1,<4",
+  "PyYAML>=6,<7",
+]
+
+[project.scripts]
+astrolog = "logpresent.__main__:main"
+logpresent = "logpresent.__main__:main"
+
+[project.urls]
+Source = "https://github.com/DingdingLuan/AstroLOG"
+Demo = "https://dingdingluan.github.io/AstroLOG/"
+Issues = "https://github.com/DingdingLuan/AstroLOG/issues"
+
+[tool.setuptools.packages.find]
+include = ["logpresent*"]

@@ -1,0 +1,43 @@
+# Copy to config.yaml, change root/files, then restart the viewer.
+display:
+  title: AstroLOG
+  project: My project
+  server_name: my-server  # Optional: Connected · my-server; blank hides it.
+  default_file: work.main
+  theme: auto            # dark, light or auto
+  initial_lines: 100
+  page_lines: 200
+  size_decimals: 4        # Decimal places for file sizes, from 0 to 6.
+  announcement:
+    path: ../content/announcement.md
+    title: Workspace notes
+    refresh_seconds: 15
+
+security:
+  enabled: false         # Set true after running scripts/set_token.py.
+  token_file: ../var/auth/access-token
+  session_days: 7
+  secure_cookie: false   # Set true when the browser connects over HTTPS.
+
+data:
+  poll_seconds: 0.5
+  sources:
+    work:
+      type: local
+      label: My files
+      root: /absolute/path/to/project
+      files:
+        main:
+          path: output/run.log
+          label: Main output
+        cpu:
+          path: output/cpu.log
+          label: Timing diagnostics
+      inventory:
+        # Applied when browsing a folder, not to global filename search.
+        patterns: ["snapshot_*", "snap_*.hdf5"]
+        refresh_seconds: 30
+
+# Add further sources under data.sources using the same structure.
+# Only type: local is implemented. Sync remote logs locally using your own
+# SSH/rsync process, then point root at the local replica directory.

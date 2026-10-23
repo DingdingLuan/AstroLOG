@@ -1,0 +1,19 @@
+# Optional user-level unit. Replace /opt/astrolog with your checkout directory.
+# Copy to ~/.config/systemd/user/astrolog.service, then:
+# systemctl --user daemon-reload
+# systemctl --user enable --now astrolog.service
+# For survival after the last login session ends, systemd user lingering must be enabled.
+[Unit]
+Description=AstroLOG live log viewer
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/astrolog
+ExecStart=/opt/astrolog/.venv/bin/python -m logpresent --config /opt/astrolog/config/config.yaml --host 127.0.0.1 --port 8765
+Restart=on-failure
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

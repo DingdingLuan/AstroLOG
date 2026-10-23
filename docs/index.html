@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#e9edf1">
+  <title>AstroLOG · Interactive demo</title>
+  <link rel="icon" href="./favicon.ico?v=20261023-brand2" type="image/x-icon">
+  <link rel="icon" href="./favicon-32.png?v=20261023-brand2" type="image/png" sizes="32x32">
+  <link rel="icon" href="./astrolog-mark.svg?v=20261023-brand2" type="image/svg+xml" sizes="any">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=20261023-brand2" sizes="180x180">
+  <link rel="stylesheet" href="./styles.css">
+  <meta name="description" content="Try AstroLOG: a live log viewer. This interactive demo uses synthetic data entirely in your browser.">
+  <script src="./demo-adapter.js" defer></script>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <!-- This is deliberately synthetic. Protected logs are never loaded behind the gate. -->
+  <div id="placeholder-workspace" class="placeholder-workspace" aria-hidden="true" inert>
+    <div class="placeholder-header"><span class="placeholder-brand"><img src="./astrolog-mark.svg?v=20261023-brand2" alt="" width="34" height="34"></span><span class="placeholder-block short"></span><span class="placeholder-block tiny"></span></div>
+    <div class="placeholder-body"><div class="placeholder-tabs"><span class="placeholder-block tiny"></span><span class="placeholder-block tiny"></span></div><div class="placeholder-terminal"><div class="placeholder-toolbar"><span class="placeholder-block short"></span></div><div class="placeholder-lines"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div>
+  </div>
+
+  <section id="auth-gate" class="auth-gate" aria-label="Workspace access">
+    <div class="auth-card">
+      <div class="auth-brand"><span class="brand-icon" aria-hidden="true"><img src="./astrolog-mark.svg?v=20261023-brand2" alt="" width="34" height="34"></span><span>AstroLOG</span></div>
+      <h1>Your logs, in focus.</h1>
+      <p class="auth-description" id="auth-description">Checking workspace access…</p>
+      <form id="auth-form" autocomplete="off">
+        <label for="auth-token">Access passphrase</label>
+        <input id="auth-token" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="Enter your passphrase" required>
+        <div id="auth-error" class="auth-error" role="alert" hidden></div>
+        <button id="auth-submit" class="auth-submit" type="submit" disabled><span>Open workspace</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5"/></svg></button>
+      </form>
+      <div class="auth-footnote"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="8" width="12" height="9" rx="2"/><path d="M6.5 8V5.5a3.5 3.5 0 0 1 7 0V8"/></svg>Private workspace · Read-only access</div>
+      <button type="button" id="auth-theme-toggle" class="auth-theme-toggle" aria-label="Switch color theme">Switch appearance</button>
+    </div>
+  </section>
+
+  <div id="workspace" class="workspace" hidden>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="AstroLOG home"><span class="brand-icon" aria-hidden="true"><img src="./astrolog-mark.svg?v=20261023-brand2" alt="" width="34" height="34"></span><span id="brand-title">AstroLOG</span></a>
+      <span class="project-divider" aria-hidden="true">/</span><span id="project-title" class="project-title">Workspace</span>
+      <div class="topbar-actions"><button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark theme"><svg id="theme-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16.4 12.6A7 7 0 0 1 7.4 3.6a7 7 0 1 0 9 9Z"/></svg><span id="theme-label">Dark</span></button><span id="auth-divider" class="action-divider"></span><button id="logout-button" class="logout-button" type="button">Sign out<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 4H4v12h4m4-10 4 4-4 4m-5-4h9"/></svg></button></div>
+    </header>
+
+    <main class="main-content">
+      <section id="announcement-card" class="announcement-card" hidden aria-label="Workspace information">
+        <button type="button" id="announcement-toggle" class="announcement-toggle" aria-expanded="false" aria-controls="announcement-body">
+          <span class="announcement-mark" aria-hidden="true"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="M10 9v5m0-8v.1"/></svg></span>
+          <span class="announcement-heading"><strong id="announcement-title">About this workspace</strong><span id="announcement-summary"></span></span>
+          <span class="announcement-action" id="announcement-action">Read note</span><svg class="announcement-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg>
+        </button>
+        <div id="announcement-body" class="markdown-body" hidden></div>
+      </section>
+      <div class="workspace-navigation"><nav class="tabs" role="tablist" aria-label="Workspace views"><button class="tab active" id="logs-tab" type="button" role="tab" aria-controls="logs-panel" aria-selected="true"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4 5 4 4-4 4m7 0h5"/></svg>Logs</button><button class="tab" id="inventory-tab" type="button" role="tab" aria-controls="inventory-panel" aria-selected="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h5l2 2h7v9H3Zm0 0V3h5l2 2h7v2"/></svg>Files<span class="tab-count" id="inventory-count">—</span></button></nav><span class="connection-state"><span class="status-dot" id="connection-dot"></span><span id="connection-label">Connecting</span><span id="connection-server" class="connection-server" hidden></span></span></div>
+
+      <section class="viewer-layout" id="logs-panel" role="tabpanel" aria-labelledby="logs-tab">
+        <div class="explorer-section explorer-surface" id="log-explorer-surface"><div class="explorer-header"><button type="button" id="log-explorer-toggle" class="explorer-toggle" aria-expanded="true" aria-controls="log-explorer-region"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 4 6 6-6 6"/></svg><span>Log files</span><span class="explorer-file-count" id="log-explorer-count"></span></button><span class="explorer-hint">Choose a log</span></div><div id="log-explorer-region" class="explorer-region"><nav id="log-explorer" class="log-explorer navigation-tree" aria-label="Log files"></nav></div></div>
+        <div class="viewer-card content-surface" id="log-content">
+        <div class="log-toolbar">
+          <div class="selected-file"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2h6l4 4v12H5Zm6 0v5h4M8 10h4m-4 3h4"/></svg><button type="button" id="selected-file-label" class="selected-file-path" aria-controls="log-explorer-region" aria-expanded="true">Opening file…</button><span class="file-size" id="file-size">—</span><span class="visually-hidden" id="file-path"></span></div>
+          <div class="log-tools">
+            <div class="search-wrap"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5"/><path d="m12.5 12.5 4 4"/></svg><input type="search" id="log-search" placeholder="Search loaded lines" aria-label="Search loaded log lines" autocomplete="off" spellcheck="false"><kbd id="search-shortcut">/</kbd><button type="button" id="search-next" class="search-next" aria-label="Next search result" title="Next match (Enter)" hidden>↓</button></div>
+            <div class="log-action-buttons">
+              <a id="download-log" class="icon-button download-button" aria-label="Download log file" title="Download this log" download><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2v11m-4-4 4 4 4-4M4 14v3h12v-3"/></svg><span>Download</span></a>
+              <button type="button" class="icon-button" id="wrap-toggle" aria-label="Wrap long lines" aria-pressed="false" title="Wrap long lines"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 9h10a3 3 0 1 1 0 6H9m2-2-2 2 2 2M3 13h2"/></svg></button>
+              <button type="button" class="position-latest" id="jump-latest-button">Latest<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v12m-4-4 4 4 4-4"/></svg></button>
+              <button class="follow-button active" id="follow-toggle" type="button" aria-pressed="true"><span class="follow-indicator" aria-hidden="true"></span><span id="follow-label">Following</span></button>
+            </div>
+          </div>
+        </div>
+        <div class="position-toolbar">
+          <div class="position-summary"><button type="button" class="navigate-toggle" id="navigate-toggle" aria-expanded="true" aria-controls="navigate-region"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v14M3 10h14m-7-7-2 2m2-2 2 2m5 5-2-2m2 2-2 2m-5 5 2-2m-2 2-2-2M3 10l2 2m-2-2 2-2"/></svg><span>Navigate</span><svg class="navigate-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg></button><span id="jump-status" class="jump-status" role="status">Latest output</span></div>
+          <div id="navigate-region" class="position-controls"><label for="jump-line">Line<input type="number" id="jump-line" min="1" step="1" placeholder="1" inputmode="numeric"></label><span class="position-or">or</span><label for="jump-percent"><span class="position-full-label">Position</span><span class="position-short-label">Pos.</span><input type="number" id="jump-percent" min="0" max="100" step="0.1" value="100" inputmode="decimal"><span>%</span></label><button type="button" class="position-go" id="jump-go">Go</button></div>
+        </div>
+        <div id="viewer-notice" class="viewer-notice" role="status" hidden></div>
+        <div class="log-area"><div class="top-fade" aria-hidden="true"></div><div id="log-viewport" class="log-viewport" tabindex="0" aria-label="Log contents. Scroll up for older lines."><div class="history-status" id="history-status" aria-live="polite"></div><div id="log-lines" class="log-lines" role="log" aria-live="off" aria-label="Log lines"></div><div class="log-empty" id="log-empty"><span class="empty-icon" aria-hidden="true">›_</span><strong>Opening your log</strong><span>New lines will appear here.</span></div></div><div id="log-loading" class="log-loading" role="status" hidden><span class="loading-spinner" aria-hidden="true"></span><span id="log-loading-text">Opening file…</span></div><button type="button" id="jump-latest" class="jump-latest" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v12m-4-4 4 4 4-4"/></svg><span id="jump-label">Back to latest</span></button></div>
+        <footer class="viewer-footer"><div><span class="status-dot" id="stream-dot"></span><span id="stream-status">Connecting</span><span class="footer-separator">·</span><span id="log-update-time">Waiting for output</span></div><div><span id="search-count" class="search-count"></span><span id="loaded-lines">0 lines loaded</span><span class="footer-separator">·</span><span>UTF-8</span></div></footer>
+        </div>
+      </section>
+
+      <section class="viewer-layout inventory-panel" id="inventory-panel" role="tabpanel" aria-labelledby="inventory-tab" hidden>
+        <div class="folder-section explorer-surface" id="folder-explorer-surface"><div class="explorer-header"><button type="button" id="folder-explorer-toggle" class="explorer-toggle" aria-expanded="true" aria-controls="folder-explorer-region"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 4 6 6-6 6"/></svg><span>Folders</span></button><span class="explorer-hint">Browse configured sources</span></div><div id="folder-explorer-region" class="explorer-region"><nav id="folder-tree" class="navigation-tree" aria-label="Folder tree"></nav></div></div>
+        <div class="viewer-card content-surface" id="inventory-content">
+        <div class="inventory-heading"><div class="inventory-heading-left"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h5l2 2h7v9H3Zm0 0V3h5l2 2h7v2"/></svg><span id="inventory-location">Files</span><span class="inventory-patterns" id="inventory-patterns"></span></div><div class="inventory-toolbar-actions"><div class="search-wrap inventory-search-wrap"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5"/><path d="m12.5 12.5 4 4"/></svg><input type="search" id="inventory-search" maxlength="256" placeholder="Search all files" aria-label="Search filenames across all configured sources" autocomplete="off" spellcheck="false"></div><button type="button" class="refresh-button" id="refresh-inventory"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 7a6 6 0 1 0 0 6M16 3v4h-4"/></svg><span>Refresh</span></button></div></div>
+        <div class="inventory-summary"><span id="inventory-summary">Loading file metadata…</span><span id="inventory-updated">—</span></div>
+        <div id="inventory-search-status" class="inventory-search-status" role="status" hidden></div>
+        <div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th scope="col">Name</th><th scope="col">Size</th><th scope="col" class="modified-column">Modified</th></tr></thead><tbody id="inventory-body"></tbody></table><div id="inventory-empty" class="inventory-empty" hidden>No matching files.</div></div>
+        <footer class="inventory-footer"><span id="inventory-page-info">Page 1</span><div><button type="button" class="pagination-button" id="inventory-prev" disabled>← Previous</button><button type="button" class="pagination-button" id="inventory-next" disabled>Next →</button></div></footer>
+        </div>
+      </section>
+    </main>
+  </div>
+  <noscript><div class="noscript-message">Enable JavaScript to open this workspace.</div></noscript>
+</body>
+</html>

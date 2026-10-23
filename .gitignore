@@ -1,0 +1,39 @@
+# Machine-specific configuration, source data and authentication
+/config/config.yaml
+/config/config.yml
+/var/
+/logs/
+.env
+.env.*
+!.env.example
+*.log
+*.log.*
+*.pid
+*.pem
+*.key
+*.token
+
+# Python and local development
+.venv/
+.qa-venv/
+.qa-browsers/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+node_modules/
+
+# Editors and OS metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~

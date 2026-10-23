@@ -1,0 +1,43 @@
+# Safe, self-contained example. Run scripts/start_demo.sh to generate the logs.
+# Paths below are relative to this config/ directory.
+display:
+  title: AstroLOG
+  project: Demo workspace
+  server_name: localhost
+  default_file: demo.main
+  theme: auto
+  initial_lines: 100
+  page_lines: 200
+  size_decimals: 4
+  announcement:
+    path: ../content/announcement.md
+    title: Welcome
+    refresh_seconds: 15
+
+# The demo contains synthetic data and binds to localhost by default.
+security:
+  enabled: false
+  token_file: ../var/auth/access-token
+  session_days: 7
+  secure_cookie: false
+
+data:
+  poll_seconds: 0.5
+  sources:
+    demo:
+      type: local
+      label: Synthetic examples
+      root: ../var/demo
+      files:
+        main:
+          path: simulation/run.log
+          label: Simulation output
+        cpu:
+          path: diagnostics/cpu.log
+          label: Timing diagnostics
+        events:
+          path: diagnostics/events.log
+          label: Structured and plain-text events
+      inventory:
+        patterns: ["*"]
+        refresh_seconds: 30
