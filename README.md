@@ -71,7 +71,7 @@ Edit `content/announcement.md` to update the optional note without restarting. S
 .venv/bin/python -m unittest discover -s tests -q
 ```
 
-[MIT license](LICENSE) · [AstroSlacker](https://astroslacker.com/)
+[MIT license](LICENSE) · [Astroslacker](https://astroslacker.com/)
 
 ---
 
@@ -154,4 +154,4 @@ LOGPRESENT_HOST=0.0.0.0 bash scripts/start.sh
 .venv/bin/python -m unittest discover -s tests -q
 ```
 
-[MIT 许可证](LICENSE) · [AstroSlacker](https://astroslacker.com/)
+[MIT 许可证](LICENSE) · [Astroslacker](https://astroslacker.com/)
