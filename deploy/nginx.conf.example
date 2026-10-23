@@ -1,4 +1,5 @@
 # Optional reverse proxy. Start AstroLOG on 127.0.0.1:8765 first.
+# Match proxy_pass below to server.host and server.port in your YAML.
 # Add TLS using your normal Nginx setup for access over the public Internet.
 server {
     listen 8080;

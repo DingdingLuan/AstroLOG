@@ -1,4 +1,8 @@
 # Copy to config.yaml, change root/files, then restart the viewer.
+server:
+  host: 127.0.0.1        # Use 0.0.0.0 to listen on all local IPv4 interfaces.
+  port: 8765
+
 display:
   title: AstroLOG
   project: My project

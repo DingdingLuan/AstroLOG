@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Mapping
+import ipaddress
 import math
+import os
 from pathlib import Path
 from typing import Any
 
@@ -71,6 +74,52 @@ class SecuritySettings:
 
 
 @dataclass(frozen=True)
+class ServerSettings:
+    host: str = "127.0.0.1"
+    port: int = 8765
+
+
+def _server(value: Any) -> ServerSettings:
+    if value is None:
+        value = {}
+    if not isinstance(value, dict) or set(value) - {"host", "port"}:
+        raise ValueError("server must be a mapping with only host and port")
+    host = value.get("host", "127.0.0.1")
+    if (not isinstance(host, str) or not host.strip() or len(host) > 253
+            or any(char.isspace() for char in host.strip())
+            or any(ord(char) < 32 or ord(char) == 127 for char in host)
+            or any(char in host for char in "/\\?#[]@")):
+        raise ValueError("server.host must be an IP address or hostname without a URL scheme or port")
+    host = host.strip()
+    if ":" in host:
+        try:
+            ipaddress.IPv6Address(host)
+        except ValueError:
+            raise ValueError("server.host must be an IP address or hostname without a URL scheme or port") from None
+    port = value.get("port", 8765)
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        raise ValueError("server.port must be an integer between 1 and 65535")
+    return ServerSettings(host, port)
+
+
+def resolve_server(server: ServerSettings, host: str | None = None, port: int | None = None,
+                   environ: Mapping[str, str] | None = None) -> ServerSettings:
+    """Resolve each bind option: command line, environment, YAML, then defaults."""
+    environment = os.environ if environ is None else environ
+    resolved_host = host if host is not None else environment.get("LOGPRESENT_HOST") or server.host
+    resolved_port = port
+    if resolved_port is None:
+        environment_port = environment.get("LOGPRESENT_PORT")
+        if environment_port:
+            if not environment_port.isascii() or not environment_port.isdecimal():
+                raise ValueError("LOGPRESENT_PORT must be an integer between 1 and 65535")
+            resolved_port = int(environment_port)
+        else:
+            resolved_port = server.port
+    return _server({"host": resolved_host, "port": resolved_port})
+
+
+@dataclass(frozen=True)
 class Settings:
     display: dict[str, Any]
     sources: dict[str, Source]
@@ -78,6 +127,7 @@ class Settings:
     poll_seconds: float
     security: SecuritySettings
     announcement: Announcement | None = None
+    server: ServerSettings = ServerSettings()
 
 
 def load_config(path: str | Path) -> Settings:
@@ -86,6 +136,7 @@ def load_config(path: str | Path) -> Settings:
         document = yaml.safe_load(handle)
     if not isinstance(document, dict):
         raise ValueError("Configuration must be a YAML mapping")
+    server = _server(document.get("server"))
     display = dict(document.get("display") or {})
     announcement = _announcement(display.pop("announcement", None), config_path.parent)
     display.setdefault("title", "AstroLOG")
@@ -178,4 +229,4 @@ def load_config(path: str | Path) -> Settings:
     if enabled and token_file is None:
         raise ValueError("security.token_file is required when authentication is enabled")
     security = SecuritySettings(enabled, token_file, session_days, secure_cookie)
-    return Settings(display, sources, files, poll_seconds, security, announcement)
+    return Settings(display, sources, files, poll_seconds, security, announcement, server)

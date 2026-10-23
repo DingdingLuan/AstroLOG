@@ -1,5 +1,9 @@
 # Safe, self-contained example. Run scripts/start_demo.sh to generate the logs.
 # Paths below are relative to this config/ directory.
+server:
+  host: 127.0.0.1
+  port: 8765
+
 display:
   title: AstroLOG
   project: Demo workspace

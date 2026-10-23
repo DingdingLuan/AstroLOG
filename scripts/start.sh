@@ -15,12 +15,21 @@ if [[ -f "$PIDFILE" ]]; then
     exit 1
   fi
 fi
-HOST=${LOGPRESENT_HOST:-127.0.0.1}
-PORT=${LOGPRESENT_PORT:-8765}
 CONFIG=${LOGPRESENT_CONFIG:-$ROOT/config/config.yaml}
 [[ -x "$ROOT/.venv/bin/python" ]] || { echo 'Run bash scripts/install.sh first.' >&2; exit 1; }
 [[ -f "$CONFIG" ]] || { echo "Configuration not found: $CONFIG" >&2; echo 'First copy config/demo.yaml or config/example.yaml to config/config.yaml.' >&2; exit 1; }
-[[ "$PORT" =~ ^[0-9]+$ ]] && (( 10#$PORT >= 1 && 10#$PORT <= 65535 )) || { echo 'LOGPRESENT_PORT must be between 1 and 65535.' >&2; exit 1; }
+BIND=$("$ROOT/.venv/bin/python" - "$CONFIG" <<'PY'
+import sys
+from logpresent.config import load_config, resolve_server
+
+try:
+    server = resolve_server(load_config(sys.argv[1]).server)
+except (OSError, ValueError) as exc:
+    raise SystemExit(str(exc))
+print(server.host, server.port)
+PY
+)
+read -r HOST PORT <<< "$BIND"
 PROBE_HOST=$HOST
 [[ "$HOST" != 0.0.0.0 ]] || PROBE_HOST=127.0.0.1
 [[ "$HOST" != :: ]] || PROBE_HOST=::1

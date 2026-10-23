@@ -58,13 +58,26 @@ AstroLOG 不会修改日志文件。远程日志需要另行同步到本地，�
 
 ## 让其他人访问
 
-默认只允许本机访问。要让局域网里的其他人访问，启动时指定监听地址：
+监听地址和端口写在 `config/config.yaml` 里，默认是 `127.0.0.1:8765`。比如想换成 9000 端口：
 
-```bash
-LOGPRESENT_HOST=0.0.0.0 bash scripts/start.sh
+```yaml
+server:
+  host: 127.0.0.1
+  port: 9000
 ```
 
-端口和配置文件可通过 `LOGPRESENT_PORT`、`LOGPRESENT_CONFIG` 指定。服务在后台运行，运行日志保存在 `var/log/server.log`；重启机器后需要重新启动服务。
+改完后重启：
+
+```bash
+bash scripts/stop.sh
+bash scripts/start.sh
+```
+
+然后打开 **http://127.0.0.1:9000/**。如果要让局域网里的其他人访问，把 `host` 改成 `0.0.0.0`，表示监听本机所有 IPv4 网络接口。访问时填机器的实际 IP 或域名，加上端口，例如 `http://192.168.1.20:9000/`；不要在浏览器里填 `0.0.0.0`。
+
+如果同时设置了多处，优先级是：命令行 `--host` / `--port` > 环境变量 `LOGPRESENT_HOST` / `LOGPRESENT_PORT` > YAML > 默认值。启动脚本还可以通过 `LOGPRESENT_CONFIG` 指定另一份配置文件。
+
+服务在后台运行，运行日志保存在 `var/log/server.log`；重启机器后需要重新启动服务。
 
 需要登录口令时，先运行 `.venv/bin/python scripts/set_token.py`，再在 YAML 中设置 `security.enabled: true` 和 `security.token_file: ../var/auth/access-token`。浏览器通过 Cookie 保持登录；使用 HTTPS 时再设置 `security.secure_cookie: true`。
 
