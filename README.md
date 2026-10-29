@@ -83,6 +83,18 @@ Edit `content/announcement.md` to update the optional note without restarting. S
 
 ### Remote logs
 
+The collector calls the system OpenSSH `ssh` command through Python; it does not use Paramiko. Host address, user, SSH port, and key are taken from `~/.ssh/config`. For example:
+
+```sshconfig
+Host my-server
+    HostName 203.0.113.10
+    User my-user
+    Port 2222
+    IdentityFile ~/.ssh/id_ed25519_my_server
+```
+
+Use `ssh_hops: [my-server]` in the collector YAML. For `ssh_hops: [relay, my-server]`, the first alias is read on the collector machine; the second SSH command runs on the relay and uses the relay's own config and key. This is nested SSH, rather than an implicit `ProxyJump` setting. The web viewer's `server.port` is independent of these SSH ports.
+
 Copy `config/collector.example.yaml` to `config/collector.yaml`. Set the SSH alias, remote directory, logs to follow, and a local cache directory. Multiple `ssh_hops` can relay through another machine using its existing SSH setup.
 
 ```bash
@@ -189,6 +201,18 @@ bash scripts/start.sh
 `deploy/` 里有 Nginx 和 systemd 配置示例。用 Nginx 反向代理时，需要关闭缓冲，让日志能及时推送到浏览器。
 
 ### 远程日志
+
+采集器用 Python 调用系统的 OpenSSH `ssh` 命令，没有使用 Paramiko。主机地址、用户名、SSH 端口和密钥写在 `~/.ssh/config` 里，例如：
+
+```sshconfig
+Host my-server
+    HostName 203.0.113.10
+    User my-user
+    Port 2222
+    IdentityFile ~/.ssh/id_ed25519_my_server
+```
+
+采集 YAML 中填 `ssh_hops: [my-server]` 即可。如果填 `[relay, my-server]`，第一个别名从采集机器的 SSH 配置读取；第二次 SSH 在 relay 上执行，使用 relay 自己的配置和密钥。这里是逐跳执行 SSH，不是自动设置 `ProxyJump`。网页的 `server.port` 与 SSH 端口各自独立。
 
 复制 `config/collector.example.yaml` 为 `config/collector.yaml`，填好 SSH 别名、远程目录、要看的日志和本地缓存目录。需要经过另一台机器连接时，可以在 `ssh_hops` 里依次填写别名，使用各台机器已有的 SSH 配置。
 

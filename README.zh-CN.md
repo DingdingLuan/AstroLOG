@@ -85,6 +85,18 @@ bash scripts/start.sh
 
 ## 远程日志
 
+采集器用 Python 调用系统的 OpenSSH `ssh` 命令，没有使用 Paramiko。主机地址、用户名、SSH 端口和密钥写在 `~/.ssh/config` 里，例如：
+
+```sshconfig
+Host my-server
+    HostName 203.0.113.10
+    User my-user
+    Port 2222
+    IdentityFile ~/.ssh/id_ed25519_my_server
+```
+
+采集 YAML 中填 `ssh_hops: [my-server]` 即可。如果填 `[relay, my-server]`，第一个别名从采集机器的 SSH 配置读取；第二次 SSH 在 relay 上执行，使用 relay 自己的配置和密钥。这里是逐跳执行 SSH，不是自动设置 `ProxyJump`。网页的 `server.port` 与 SSH 端口各自独立。
+
 复制 `config/collector.example.yaml` 为 `config/collector.yaml`，填好 SSH 别名、远程目录、要看的日志和本地缓存目录。需要经过另一台机器连接时，可以在 `ssh_hops` 里依次填写别名，使用各台机器已有的 SSH 配置。
 
 ```bash

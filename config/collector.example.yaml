@@ -1,5 +1,13 @@
 # Run separately: python -m logpresent.collector --config config/collector.yaml
-# Existing SSH aliases and keys are used. A second hop runs SSH on the first.
+# Uses the system OpenSSH client, not Paramiko. Define the alias first in ~/.ssh/config:
+# Host my-server
+#   HostName 203.0.113.10
+#   User my-user
+#   Port 2222
+#   IdentityFile ~/.ssh/id_ed25519_my_server
+# Check it with: ssh my-server
+# For [relay, my-server], the collector connects to relay, then runs SSH there.
+# The second alias and its key belong in relay's SSH configuration.
 ssh_hops: [my-server]
 remote_root: /path/to/project
 local_root: ../var/replicas/my-server
