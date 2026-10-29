@@ -43,5 +43,7 @@ data:
         refresh_seconds: 30
 
 # Add further sources under data.sources using the same structure.
-# Only type: local is implemented. Sync remote logs locally using your own
-# SSH/rsync process, then point root at the local replica directory.
+# The viewer reads local files. For remote logs, run the optional AsyncSSH collector
+# from collector.example.yaml and point root at its local_root cache directory.
+# Set inventory.manifest to that cache's inventory.json to list remote data files
+# without copying their contents. NFS can share this cache between local machines.

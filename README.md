@@ -99,9 +99,19 @@ logs:
   output/info.txt: output/info.txt
 ```
 
-`identity_file` points to the private key on the collector machine. An optional `certificate_file` points to an OpenSSH certificate when your server uses one. Relative key, certificate, and cache paths resolve from the collector YAML directory. The collector calls system OpenSSH through Python, without Paramiko; normal host-key checks and SSH-agent settings still apply.
+The collector uses AsyncSSH inside Python; no system `ssh` executable is needed. The remote Unix/Linux machine needs its existing SSH service and Python 3; it does not need AsyncSSH installed.
 
-Existing SSH config aliases also work: replace the `ssh` block with `ssh_hops: [my-server]`. For `[relay, my-server]`, SSH runs first on the collector and then on the relay, using each machine's own configuration and key. Choose either `ssh` or `ssh_hops`.
+`identity_file` points to the private key on the collector machine. Optional `certificate_file` and `known_hosts` fields select an OpenSSH certificate and a trusted host-key file. Without `known_hosts`, the collector checks the user's usual `~/.ssh/known_hosts`. Relative file and cache paths resolve from the collector YAML directory.
+
+You can also replace the `ssh` block with `ssh_hops: [my-server]`, using SSH aliases supported by AsyncSSH. With `[relay, my-server]`, AsyncSSH forwards the second connection through the first. **Both aliases, their settings, and all required keys are read on the collector machine.** Older profiles which relied on a key stored only on the relay need updating. Choose either `ssh` or `ssh_hops`.
+
+To run the collector directly in your Python environment:
+
+```bash
+python -m logpresent.collector --config config/collector.yaml
+```
+
+The Bash helpers are optional:
 
 ```bash
 bash scripts/start_collector.sh
@@ -110,7 +120,7 @@ bash scripts/stop_collector.sh  # stop collection; the viewer stays running
 
 Point a viewer source at the cache directory, list its log files, and set `inventory.manifest` to the cache's `inventory.json`. The collector can run on another local machine: if the machines share an NFS directory, write the cache there and have the viewer read the same directory through its own mount path. No SSH connection between those two local machines is needed. `collector-status.json` records connection state and the last update.
 
-The remote reader remembers its byte offset and sends appended bytes over a persistent SSH connection. It resumes after disconnections and detects replaced or truncated logs. Snapshot and restart contents stay remote; only names, sizes, and modification times are collected for the configured paths.
+The remote reader remembers its byte offset and sends appended bytes over a persistent SSH connection. The collector handles keepalives, timeout detection, reconnection, and resuming from the saved position; replaced or truncated logs start a new copy. Snapshot and restart contents stay remote; only names, sizes, and modification times are collected for the configured paths.
 
 ### Development
 
@@ -224,9 +234,19 @@ logs:
   output/info.txt: output/info.txt
 ```
 
-`identity_file` 是采集机器上的私钥路径。如果服务器使用 OpenSSH 证书，还可以填写 `certificate_file`。密钥、证书和缓存的相对路径都从采集 YAML 所在目录算起。采集器用 Python 调用系统的 OpenSSH，没有使用 Paramiko；主机密钥检查和 SSH agent 仍按系统 SSH 设置执行。
+采集器现在直接使用 Python 的 AsyncSSH 库，不再调用系统的 `ssh` 命令。远端 Unix/Linux 机器只需要已有的 SSH 服务和 Python 3，不用安装 AsyncSSH。
 
-已有 SSH 别名也能继续用：把 `ssh` 这一段换成 `ssh_hops: [my-server]` 即可。如果填 `[relay, my-server]`，就先连接 relay，再在 relay 上执行第二次 SSH，使用各台机器自己的配置和密钥。`ssh` 和 `ssh_hops` 二选一。
+`identity_file` 是采集机器上的私钥路径。还可以用 `certificate_file` 指定 OpenSSH 证书，用 `known_hosts` 指定可信主机密钥文件。不填 `known_hosts` 时，默认检查用户的 `~/.ssh/known_hosts`。这些文件和缓存的相对路径都从采集 YAML 所在目录算起。
+
+也可以把 `ssh` 这一段换成 `ssh_hops: [my-server]`，使用 AsyncSSH 支持的 SSH 别名配置。填 `[relay, my-server]` 时，AsyncSSH 会通过第一条连接转发第二条连接。**两个别名的配置和需要的密钥都从采集机器读取。** 旧配置如果依赖只放在 relay 上的密钥，需要相应调整。`ssh` 和 `ssh_hops` 二选一。
+
+在 Python 环境里可以直接启动：
+
+```bash
+python -m logpresent.collector --config config/collector.yaml
+```
+
+Bash 后台脚本也可以继续用：
 
 ```bash
 bash scripts/start_collector.sh
@@ -235,7 +255,7 @@ bash scripts/stop_collector.sh  # 停止采集，网页服务继续运行
 
 网页的数据源指向缓存目录，在 `files` 中列出日志，并将 `inventory.manifest` 指向缓存里的 `inventory.json`。采集器也可以放在另一台本地机器上：两台机器有 NFS 共享目录时，采集器写入共享目录，网页通过自己的挂载路径读取同一份文件，两者之间就不需要再加 SSH。`collector-status.json` 记录连接状态和最后更新时间。
 
-远端读取程序记住已经读到的字节位置，通过 SSH 长连接发送新增部分，断线后继续读取；文件被替换或清空时重新同步。快照和 restart 内容留在远程，只读取已配置路径下的名称、大小和修改时间。
+远端读取程序记住已经读到的字节位置，通过 SSH 长连接发送新增部分。采集器负责心跳、超时检测、重连和断点续传；文件被替换或清空时重新同步。快照和 restart 内容留在远程，只读取已配置路径下的名称、大小和修改时间。
 
 ### 开发
 

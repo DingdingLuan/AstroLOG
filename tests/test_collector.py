@@ -5,14 +5,13 @@ import json
 import os
 from pathlib import Path
 import shlex
-import shutil
-import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import yaml
 
-from logpresent.collector import Mirror, load_collector_config, ssh_command
+from logpresent.collector import Mirror, load_collector_config, connection_options, build_remote_command
 from logpresent.remote_collect import Reader, inventory, relative_path
 
 
@@ -139,11 +138,9 @@ class CollectorTests(unittest.TestCase):
         path.write_text(yaml.safe_dump({**self.config, "local_root": "replicas"}))
         config = load_collector_config(path)
         self.assertEqual(config["local_root"], str(self.base / "replicas"))
-        command = ssh_command(config, {})
-        self.assertEqual(command[0], "ssh")
-        self.assertIn("relay", command)
-        self.assertIn("cluster", command[-1])
-        self.assertIn("BatchMode=yes", command)
+        options = connection_options(config)
+        self.assertEqual([entry["host"] for entry in options], ["relay", "cluster"])
+        self.assertNotIn("ssh_hops", json.loads(shlex.split(build_remote_command(config, {}))[-1]))
         config["ssh_hops"] = ["--evil"]
         path.write_text(yaml.safe_dump(config))
         with self.assertRaises(ValueError):
@@ -162,26 +159,16 @@ class CollectorTests(unittest.TestCase):
         config = load_collector_config(path)
         self.assertEqual(config["ssh"]["identity_file"], str(key))
         self.assertEqual(config["ssh"]["certificate_file"], str(certificate))
-        command = ssh_command(config, {})
-        self.assertEqual(command[command.index("-p") + 1], "2222")
-        self.assertEqual(command[command.index("-l") + 1], "test-user")
-        self.assertEqual(command[command.index("-i") + 1], str(key))
-        self.assertEqual(command[-2], "2001:db8::1")
-        self.assertIn('CertificateFile=' + json.dumps(str(certificate)), command)
-        remote = json.loads(shlex.split(command[-1])[-1])
+        options = connection_options(config)[0]
+        self.assertEqual(options["host"], "2001:db8::1")
+        self.assertEqual(options["port"], 2222)
+        self.assertEqual(options["username"], "test-user")
+        self.assertEqual(options["client_keys"], [str(key)])
+        self.assertEqual(options["client_certs"], [str(certificate)])
+        remote = json.loads(shlex.split(build_remote_command(config, {}))[-1])
         self.assertNotIn("ssh", remote)
         self.assertNotIn("ssh_hops", remote)
         self.assertNotIn("local_root", remote)
-        if shutil.which("ssh"):
-            # ssh -G parses all options without opening a network connection.
-            parsed = subprocess.run([command[0], "-G", *command[1:-1]],
-                                    capture_output=True, text=True, timeout=5)
-            self.assertEqual(parsed.returncode, 0, parsed.stderr)
-            settings = dict(row.split(" ", 1) for row in parsed.stdout.splitlines() if " " in row)
-            self.assertEqual(settings["hostname"], "2001:db8::1")
-            self.assertEqual(settings["user"], "test-user")
-            self.assertEqual(settings["port"], "2222")
-            self.assertEqual(settings["certificatefile"], str(certificate))
 
     def test_direct_ssh_defaults_allow_existing_agent_or_default_identity(self):
         path = self.base / "collector.yaml"
@@ -190,10 +177,11 @@ class CollectorTests(unittest.TestCase):
         path.write_text(yaml.safe_dump(document))
         config = load_collector_config(path)
         self.assertEqual(config["ssh"], {"host": "cluster.example", "port": 22})
-        command = ssh_command(config, {})
-        self.assertEqual(command[command.index("-p") + 1], "22")
-        self.assertNotIn("-l", command)
-        self.assertNotIn("-i", command)
+        options = connection_options(config)[0]
+        self.assertEqual(options["port"], 22)
+        self.assertNotIn("username", options)
+        self.assertNotIn("client_keys", options)
+        self.assertNotIn("known_hosts", options)  # Keep AsyncSSH's normal verification default.
 
     def test_direct_ssh_rejects_invalid_connection_options_and_missing_keys(self):
         path = self.base / "collector.yaml"
@@ -216,3 +204,20 @@ class CollectorTests(unittest.TestCase):
         path.write_text(yaml.safe_dump(document))
         with self.assertRaisesRegex(ValueError, "either ssh or ssh_hops"):
             load_collector_config(path)
+
+    def test_alias_command_hooks_are_rejected_before_configuration_evaluation(self):
+        home = self.base / "fake-home"
+        directory = home / ".ssh"
+        included = directory / "included" / "nested"
+        included.mkdir(parents=True)
+        config = directory / "config"
+        for directive in ('Match exec "must-not-run"', 'Match !exec "must-not-run"',
+                          'ProxyCommand ssh must-not-run',
+                          'KnownHostsCommand must-not-run'):
+            with self.subTest(directive=directive):
+                config.write_text('Include included/**/*.conf\n')
+                (included / "settings.conf").write_text(directive + '\n')
+                with patch("logpresent.collector.Path.home", return_value=home), \
+                        patch("subprocess.run", side_effect=AssertionError("No external config commands")):
+                    with self.assertRaisesRegex(ValueError, "not supported"):
+                        connection_options(self.config)

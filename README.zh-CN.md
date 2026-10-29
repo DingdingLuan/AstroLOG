@@ -101,9 +101,19 @@ logs:
   output/info.txt: output/info.txt
 ```
 
-`identity_file` 是采集机器上的私钥路径。如果服务器使用 OpenSSH 证书，还可以填写 `certificate_file`。密钥、证书和缓存的相对路径都从采集 YAML 所在目录算起。采集器用 Python 调用系统的 OpenSSH，没有使用 Paramiko；主机密钥检查和 SSH agent 仍按系统 SSH 设置执行。
+采集器现在直接使用 Python 的 AsyncSSH 库，不再调用系统的 `ssh` 命令。远端 Unix/Linux 机器只需要已有的 SSH 服务和 Python 3，不用安装 AsyncSSH。
 
-已有 SSH 别名也能继续用：把 `ssh` 这一段换成 `ssh_hops: [my-server]` 即可。如果填 `[relay, my-server]`，就先连接 relay，再在 relay 上执行第二次 SSH，使用各台机器自己的配置和密钥。`ssh` 和 `ssh_hops` 二选一。
+`identity_file` 是采集机器上的私钥路径。还可以用 `certificate_file` 指定 OpenSSH 证书，用 `known_hosts` 指定可信主机密钥文件。不填 `known_hosts` 时，默认检查用户的 `~/.ssh/known_hosts`。这些文件和缓存的相对路径都从采集 YAML 所在目录算起。
+
+也可以把 `ssh` 这一段换成 `ssh_hops: [my-server]`，使用 AsyncSSH 支持的 SSH 别名配置。填 `[relay, my-server]` 时，AsyncSSH 会通过第一条连接转发第二条连接。**两个别名的配置和需要的密钥都从采集机器读取。** 旧配置如果依赖只放在 relay 上的密钥，需要相应调整。`ssh` 和 `ssh_hops` 二选一。
+
+在 Python 环境里可以直接启动：
+
+```bash
+python -m logpresent.collector --config config/collector.yaml
+```
+
+Bash 后台脚本也可以继续用：
 
 ```bash
 bash scripts/start_collector.sh
@@ -112,7 +122,7 @@ bash scripts/stop_collector.sh  # 停止采集，网页服务继续运行
 
 网页的数据源指向缓存目录，在 `files` 中列出日志，并将 `inventory.manifest` 指向缓存里的 `inventory.json`。采集器也可以放在另一台本地机器上：两台机器有 NFS 共享目录时，采集器写入共享目录，网页通过自己的挂载路径读取同一份文件，两者之间就不需要再加 SSH。`collector-status.json` 记录连接状态和最后更新时间。
 
-远端读取程序记住已经读到的字节位置，通过 SSH 长连接发送新增部分，断线后继续读取；文件被替换或清空时重新同步。快照和 restart 内容留在远程，只读取已配置路径下的名称、大小和修改时间。
+远端读取程序记住已经读到的字节位置，通过 SSH 长连接发送新增部分。采集器负责心跳、超时检测、重连和断点续传；文件被替换或清空时重新同步。快照和 restart 内容留在远程，只读取已配置路径下的名称、大小和修改时间。
 
 ## 开发
 

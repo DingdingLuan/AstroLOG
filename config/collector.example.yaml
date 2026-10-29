@@ -1,16 +1,18 @@
 # Run separately: python -m logpresent.collector --config config/collector.yaml
-# Uses the system OpenSSH client, not Paramiko. Fill in this connection directly:
+# AsyncSSH connects from Python; no system ssh executable is required.
 ssh:
   host: 203.0.113.10
   user: my-user
   port: 2222
   identity_file: ~/.ssh/id_ed25519_my_server
   # certificate_file: ~/.ssh/id_ed25519_my_server-cert.pub  # Optional OpenSSH certificate.
-# Key/certificate files must already exist; relative paths resolve from this YAML.
+  # known_hosts: ~/.ssh/known_hosts  # Defaults to the collector user's trusted host keys.
+# Key/certificate/known-host files must exist; relative paths resolve from this YAML.
 # Alternatively, remove the whole ssh block and use existing ~/.ssh/config aliases:
 # ssh_hops: [my-server]
 # ssh_hops: [relay, my-server]
-# A second hop runs SSH on relay, using relay's own SSH config and key.
+# All aliases and keys are read on the collector. Hops use forwarded SSH channels;
+# keys/config stored only on a relay are not loaded by the collector.
 remote_root: /path/to/project
 local_root: ../var/replicas/my-server
 poll_seconds: 1
