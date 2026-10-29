@@ -10,6 +10,7 @@ import time
 
 from .inventory import _open_directory
 from .logs import LogError
+from .manifest import MANIFESTS
 
 MAX_FILES = 100_000
 MAX_FOLDERS = 4_000
@@ -139,6 +140,30 @@ class GlobalFileIndex:
         queue = deque()
         discovered_folders = 0
         for source in self.sources.values():
+            if source.inventory_manifest is not None:
+                try:
+                    snapshot = MANIFESTS.get(source.inventory_manifest,
+                                             max_age=max(60, source.inventory_refresh_seconds * 3))
+                    if snapshot.stale:
+                        skipped["changed"] += 1
+                    if snapshot.truncated:
+                        skipped["entry_limit"] += 1
+                    skipped["unreadable"] += snapshot.skipped
+                    for entry in snapshot.entries:
+                        if self._stop.is_set():
+                            break
+                        if entry["is_dir"]:
+                            continue
+                        key = source.id, entry["path"]
+                        if key in rows:
+                            continue
+                        if len(rows) >= self.max_files:
+                            skipped["file_limit"] += 1
+                            break
+                        rows[key] = self._row(source, entry["path"], entry["size_bytes"], entry["mtime"])
+                except LogError:
+                    skipped["unreadable"] += 1
+                continue
             if discovered_folders >= self.max_folders:
                 skipped["folder_limit"] += 1
                 continue

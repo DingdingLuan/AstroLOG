@@ -63,6 +63,7 @@ class Source:
     root: Path
     inventory_patterns: tuple[str, ...]
     inventory_refresh_seconds: float
+    inventory_manifest: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -191,8 +192,17 @@ def load_config(path: str | Path) -> Settings:
         refresh = float(inventory.get("refresh_seconds", 30))
         if refresh < 0:
             raise ValueError("inventory.refresh_seconds must be nonnegative")
+        manifest = inventory.get("manifest")
+        if manifest is not None:
+            if (not isinstance(manifest, str) or not manifest.strip() or len(manifest) > 4096
+                    or any(char in manifest for char in ("\x00", "\n", "\r"))):
+                raise ValueError("inventory.manifest must be a nonempty file path")
+            manifest = Path(manifest).expanduser()
+            if not manifest.is_absolute():
+                manifest = config_path.parent / manifest
+            manifest = manifest.resolve()
         sources[source_id] = Source(source_id, raw.get("label", source_id), source_type,
-                                    root, patterns, refresh)
+                                    root, patterns, refresh, manifest)
         for file_id, value in (raw.get("files") or {}).items():
             if not isinstance(file_id, str) or "." in file_id or "/" in file_id:
                 raise ValueError("File IDs cannot contain dots or slashes")

@@ -12,6 +12,7 @@ import time
 
 from .config import Source
 from .logs import LogError
+from .manifest import MANIFESTS
 
 MAX_ENTRIES = 100_000
 MAX_CACHE_ROWS = 100_000
@@ -98,6 +99,16 @@ class InventoryCache:
         return files, folders
 
     def _cached(self, source: Source, relative: str):
+        if source.inventory_manifest is not None:
+            snapshot = MANIFESTS.get(source.inventory_manifest,
+                                     max_age=max(60, source.inventory_refresh_seconds * 3))
+            if relative and not any(row["path"] == relative and row["is_dir"] for row in snapshot.entries):
+                raise LogError(404, "Inventory directory does not exist")
+            entries = snapshot.children.get(relative, ())
+            folders = [row for row in entries if row["is_dir"]]
+            files = [row for row in entries if any(fnmatch.fnmatchcase(row["name"], pattern)
+                                                  for pattern in source.inventory_patterns)]
+            return time.monotonic(), files, folders, snapshot.updated_at, snapshot.metadata()
         key = source.id, relative
         with self._lock:
             now = time.monotonic()
@@ -110,14 +121,14 @@ class InventoryCache:
             while len(self._cache) > 1 and (len(self._cache) > MAX_CACHE_FOLDERS
                     or sum(len(item[1]) + len(item[2]) for item in self._cache.values()) > MAX_CACHE_ROWS):
                 self._cache.popitem(last=False)
-            return cached
+            return (*cached, {})
 
     def page(self, source: Source, page: int = 1, page_size: int = 50, path: str = "", q: str = "") -> dict:
         self._pagination(page, page_size)
         if not isinstance(q, str) or len(q) > 256:
             raise LogError(422, "q must be a string of at most 256 characters")
         relative = _relative(path)
-        _, files, _, timestamp = self._cached(source, relative)
+        _, files, _, timestamp, metadata = self._cached(source, relative)
         directory_total_count = len(files)
         query = q.strip()
         if query:
@@ -127,12 +138,13 @@ class InventoryCache:
         return {"source": source.id, "path": relative, "files": files[start:start + page_size],
                 "total_count": len(files), "total_bytes": sum(item["size_bytes"] for item in files),
                 "directory_total_count": directory_total_count, "query": query,
-                "page": page, "page_size": page_size, "updated_at": timestamp}
+                "page": page, "page_size": page_size, "updated_at": timestamp, **metadata}
 
     def folders(self, source: Source, path: str = "", page: int = 1, page_size: int = 50) -> dict:
         self._pagination(page, page_size)
         relative = _relative(path)
-        _, _, folders, timestamp = self._cached(source, relative)
+        _, _, folders, timestamp, metadata = self._cached(source, relative)
         start = (page - 1) * page_size
         return {"source": source.id, "path": relative, "folders": folders[start:start + page_size],
-                "total_count": len(folders), "page": page, "page_size": page_size, "updated_at": timestamp}
+                "total_count": len(folders), "page": page, "page_size": page_size,
+                "updated_at": timestamp, **metadata}

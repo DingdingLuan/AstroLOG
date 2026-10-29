@@ -1,6 +1,8 @@
 # Machine-specific configuration, source data and authentication
 /config/config.yaml
 /config/config.yml
+/config/collector.yaml
+/config/collector.yml
 /var/
 /logs/
 .env

@@ -54,7 +54,7 @@ data:
 
 如果使用相对路径，`root` 和公告路径从配置文件所在目录算起，日志路径则从 `root` 算起。编辑 `content/announcement.md` 就能更新页面公告，不用重启。
 
-AstroLOG 不会修改日志文件。远程日志需要另行同步到本地，再把本地目录填进配置。
+AstroLOG 不会修改日志文件。远程日志可以使用下面的 SSH 采集器，也可以自行同步到本地。
 
 ## 让其他人访问
 
@@ -82,6 +82,19 @@ bash scripts/start.sh
 需要登录口令时，先运行 `.venv/bin/python scripts/set_token.py`，再在 YAML 中设置 `security.enabled: true` 和 `security.token_file: ../var/auth/access-token`。浏览器通过 Cookie 保持登录；使用 HTTPS 时再设置 `security.secure_cookie: true`。
 
 `deploy/` 里有 Nginx 和 systemd 配置示例。用 Nginx 反向代理时，需要关闭缓冲，让日志能及时推送到浏览器。
+
+## 远程日志
+
+复制 `config/collector.example.yaml` 为 `config/collector.yaml`，填好 SSH 别名、远程目录、要看的日志和本地缓存目录。需要经过另一台机器连接时，可以在 `ssh_hops` 里依次填写别名，使用各台机器已有的 SSH 配置。
+
+```bash
+bash scripts/start_collector.sh
+bash scripts/stop_collector.sh  # 停止采集，网页服务继续运行
+```
+
+网页的数据源指向同一个本地缓存目录，在 `files` 中列出日志，并将 `inventory.manifest` 指向缓存里的 `inventory.json`。两份 YAML 中的相对路径都从各自配置文件所在目录算起。`collector-status.json` 记录连接状态和最后更新时间，也可以作为日志显示。
+
+采集器通过 SSH 长连接读取新增日志，断线后会自动重连、继续读取。快照和 restart 内容留在远程，只读取名称、大小和修改时间；文件列表统计的是已配置的路径，不是整个磁盘的用量。
 
 ## 开发
 

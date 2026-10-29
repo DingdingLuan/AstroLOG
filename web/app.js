@@ -1199,9 +1199,11 @@
       if(query && !indexing && page>totalPages) {state.inventoryPage=totalPages; return refreshInventory();}
       pollAgain=indexing;
       const status=$("inventory-search-status"); status.classList.toggle("is-indexing",indexing);
-      status.classList.toggle("is-partial",partial); status.hidden=!query || (!indexing && !partial);
+      const metadataWarning=!query && (result.stale || result.truncated);
+      status.classList.toggle("is-partial",partial || metadataWarning); status.hidden=query ? (!indexing && !partial) : !metadataWarning;
       if(indexing) status.textContent=`Building the file list across all sources · ${Number(result.indexed_files || 0).toLocaleString()} files checked. Results are still updating.`;
       else if(partial) status.textContent=result.truncated ? "The file-list limit was reached. These search results are incomplete." : "Some files or folders could not be listed. These search results may be incomplete.";
+      else if(metadataWarning) status.textContent=result.stale ? "Showing the last received file list. The remote metadata has not refreshed yet." : "The remote file-list limit was reached. This list is incomplete.";
       else status.textContent="";
       state.inventoryTotal = result.total_count || 0;
       $("inventory-count").textContent = indexing && !state.inventoryTotal ? "…" : state.inventoryTotal.toLocaleString();
@@ -1210,7 +1212,7 @@
       const total = document.createElement("strong"); total.className = "inventory-total"; total.textContent = formatGiB(result.total_bytes); total.title = exactBytes(result.total_bytes);
       $("inventory-summary").replaceChildren(count,document.createTextNode(" · "),total,document.createTextNode(" total"));
       $("inventory-summary").title = exactBytes(result.total_bytes);
-      $("inventory-updated").textContent = result.updated_at ? `Checked ${formatDate(result.updated_at)}` : "Metadata only";
+      $("inventory-updated").textContent = result.updated_at ? `${result.origin==="manifest" ? "Received" : "Checked"} ${formatDate(result.updated_at)}` : "Metadata only";
       const fragment = document.createDocumentFragment();
       for (const file of result.files || []) {
         const row = document.createElement("tr"), nameCell = document.createElement("td");
@@ -1235,7 +1237,7 @@
           location.title=location.textContent; details.append(location);
         }
         wrap.append(icon,details); nameCell.append(wrap);
-        const size = document.createElement("td"); size.textContent = file.is_dir ? "Directory" : formatGiB(file.size_bytes); size.title = exactBytes(file.size_bytes);
+        const size = document.createElement("td"); size.textContent = file.is_dir && !file.size_known ? "Directory" : formatGiB(file.size_bytes); size.title = file.is_dir && file.size_known ? `${exactBytes(file.size_bytes)} in the tracked files` : exactBytes(file.size_bytes);
         const modified = document.createElement("td"); modified.className = "modified-column"; modified.textContent = formatDate(file.mtime);
         row.append(nameCell,size,modified); fragment.append(row);
       }

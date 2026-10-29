@@ -1,0 +1,19 @@
+# Run separately: python -m logpresent.collector --config config/collector.yaml
+# Existing SSH aliases and keys are used. A second hop runs SSH on the first.
+ssh_hops: [my-server]
+remote_root: /path/to/project
+local_root: ../var/replicas/my-server
+poll_seconds: 1
+inventory_seconds: 30
+inventory_max_entries: 20000
+inventory_max_depth: 4
+logs:
+  logs/stdout.log: logs/run-*.out  # Follow the most recently modified match.
+  output/info.txt: output/info.txt
+  output/cpu.csv: output/cpu.csv
+inventory_patterns:
+  - output/snapdir_*
+  - output/groups_*
+  - output/restartfiles*
+  - logs/run-*.out
+  - logs/run-*.err
