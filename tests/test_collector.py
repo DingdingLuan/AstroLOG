@@ -4,6 +4,9 @@ import base64
 import json
 import os
 from pathlib import Path
+import shlex
+import shutil
+import subprocess
 import tempfile
 import unittest
 
@@ -144,4 +147,72 @@ class CollectorTests(unittest.TestCase):
         config["ssh_hops"] = ["--evil"]
         path.write_text(yaml.safe_dump(config))
         with self.assertRaises(ValueError):
+            load_collector_config(path)
+
+    def test_direct_ssh_configuration_resolves_key_paths_and_builds_explicit_arguments(self):
+        key = self.base / "client key"
+        certificate = self.base / "client key-cert.pub"
+        key.write_text("disposable test key placeholder")
+        certificate.write_text("disposable test certificate placeholder")
+        path = self.base / "collector.yaml"
+        document = {name: value for name, value in self.config.items() if name != "ssh_hops"}
+        document["ssh"] = {"host": "2001:db8::1", "user": "test-user", "port": 2222,
+                           "identity_file": key.name, "certificate_file": certificate.name}
+        path.write_text(yaml.safe_dump(document))
+        config = load_collector_config(path)
+        self.assertEqual(config["ssh"]["identity_file"], str(key))
+        self.assertEqual(config["ssh"]["certificate_file"], str(certificate))
+        command = ssh_command(config, {})
+        self.assertEqual(command[command.index("-p") + 1], "2222")
+        self.assertEqual(command[command.index("-l") + 1], "test-user")
+        self.assertEqual(command[command.index("-i") + 1], str(key))
+        self.assertEqual(command[-2], "2001:db8::1")
+        self.assertIn('CertificateFile=' + json.dumps(str(certificate)), command)
+        remote = json.loads(shlex.split(command[-1])[-1])
+        self.assertNotIn("ssh", remote)
+        self.assertNotIn("ssh_hops", remote)
+        self.assertNotIn("local_root", remote)
+        if shutil.which("ssh"):
+            # ssh -G parses all options without opening a network connection.
+            parsed = subprocess.run([command[0], "-G", *command[1:-1]],
+                                    capture_output=True, text=True, timeout=5)
+            self.assertEqual(parsed.returncode, 0, parsed.stderr)
+            settings = dict(row.split(" ", 1) for row in parsed.stdout.splitlines() if " " in row)
+            self.assertEqual(settings["hostname"], "2001:db8::1")
+            self.assertEqual(settings["user"], "test-user")
+            self.assertEqual(settings["port"], "2222")
+            self.assertEqual(settings["certificatefile"], str(certificate))
+
+    def test_direct_ssh_defaults_allow_existing_agent_or_default_identity(self):
+        path = self.base / "collector.yaml"
+        document = {name: value for name, value in self.config.items() if name != "ssh_hops"}
+        document["ssh"] = {"host": "cluster.example"}
+        path.write_text(yaml.safe_dump(document))
+        config = load_collector_config(path)
+        self.assertEqual(config["ssh"], {"host": "cluster.example", "port": 22})
+        command = ssh_command(config, {})
+        self.assertEqual(command[command.index("-p") + 1], "22")
+        self.assertNotIn("-l", command)
+        self.assertNotIn("-i", command)
+
+    def test_direct_ssh_rejects_invalid_connection_options_and_missing_keys(self):
+        path = self.base / "collector.yaml"
+        document = {name: value for name, value in self.config.items() if name != "ssh_hops"}
+        invalid = [None, [], {}, {"host": "host", "password": "unsupported"}]
+        invalid += [{"host": host} for host in ("", "-oProxyCommand=bad", "host name", "http://host",
+                                                "user@host", "host\n", "::1%bad scope")]
+        invalid += [{"host": "host", "port": port} for port in (0, 65536, True, "22", None)]
+        invalid += [{"host": "host", "user": user} for user in ("", "-bad", "bad\nuser", "bad user")]
+        invalid += [{"host": "host", key: value} for key in ("identity_file", "certificate_file")
+                    for value in ("", "missing-file", "bad\npath", str(self.base), None)]
+        for value in invalid:
+            with self.subTest(connection=value):
+                document["ssh"] = value
+                path.write_text(yaml.safe_dump(document))
+                with self.assertRaisesRegex(ValueError, "ssh"):
+                    load_collector_config(path)
+        document["ssh"] = {"host": "host"}
+        document["ssh_hops"] = ["cluster"]
+        path.write_text(yaml.safe_dump(document))
+        with self.assertRaisesRegex(ValueError, "either ssh or ssh_hops"):
             load_collector_config(path)

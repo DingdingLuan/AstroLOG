@@ -85,28 +85,34 @@ bash scripts/start.sh
 
 ## 远程日志
 
-采集器用 Python 调用系统的 OpenSSH `ssh` 命令，没有使用 Paramiko。主机地址、用户名、SSH 端口和密钥写在 `~/.ssh/config` 里，例如：
+复制 `config/collector.example.yaml` 为 `config/collector.yaml`。连接参数可以直接写在 YAML 里：
 
-```sshconfig
-Host my-server
-    HostName 203.0.113.10
-    User my-user
-    Port 2222
-    IdentityFile ~/.ssh/id_ed25519_my_server
+```yaml
+ssh:
+  host: 203.0.113.10
+  user: my-user
+  port: 2222
+  identity_file: ~/.ssh/id_ed25519_my_server
+remote_root: /path/to/project
+local_root: ../var/replicas/my-server
+poll_seconds: 1
+inventory_seconds: 30
+logs:
+  output/info.txt: output/info.txt
 ```
 
-采集 YAML 中填 `ssh_hops: [my-server]` 即可。如果填 `[relay, my-server]`，第一个别名从采集机器的 SSH 配置读取；第二次 SSH 在 relay 上执行，使用 relay 自己的配置和密钥。这里是逐跳执行 SSH，不是自动设置 `ProxyJump`。网页的 `server.port` 与 SSH 端口各自独立。
+`identity_file` 是采集机器上的私钥路径。如果服务器使用 OpenSSH 证书，还可以填写 `certificate_file`。密钥、证书和缓存的相对路径都从采集 YAML 所在目录算起。采集器用 Python 调用系统的 OpenSSH，没有使用 Paramiko；主机密钥检查和 SSH agent 仍按系统 SSH 设置执行。
 
-复制 `config/collector.example.yaml` 为 `config/collector.yaml`，填好 SSH 别名、远程目录、要看的日志和本地缓存目录。需要经过另一台机器连接时，可以在 `ssh_hops` 里依次填写别名，使用各台机器已有的 SSH 配置。
+已有 SSH 别名也能继续用：把 `ssh` 这一段换成 `ssh_hops: [my-server]` 即可。如果填 `[relay, my-server]`，就先连接 relay，再在 relay 上执行第二次 SSH，使用各台机器自己的配置和密钥。`ssh` 和 `ssh_hops` 二选一。
 
 ```bash
 bash scripts/start_collector.sh
 bash scripts/stop_collector.sh  # 停止采集，网页服务继续运行
 ```
 
-网页的数据源指向同一个本地缓存目录，在 `files` 中列出日志，并将 `inventory.manifest` 指向缓存里的 `inventory.json`。两份 YAML 中的相对路径都从各自配置文件所在目录算起。`collector-status.json` 记录连接状态和最后更新时间，也可以作为日志显示。
+网页的数据源指向缓存目录，在 `files` 中列出日志，并将 `inventory.manifest` 指向缓存里的 `inventory.json`。采集器也可以放在另一台本地机器上：两台机器有 NFS 共享目录时，采集器写入共享目录，网页通过自己的挂载路径读取同一份文件，两者之间就不需要再加 SSH。`collector-status.json` 记录连接状态和最后更新时间。
 
-采集器通过 SSH 长连接读取新增日志，断线后会自动重连、继续读取。快照和 restart 内容留在远程，只读取名称、大小和修改时间；文件列表统计的是已配置的路径，不是整个磁盘的用量。
+远端读取程序记住已经读到的字节位置，通过 SSH 长连接发送新增部分，断线后继续读取；文件被替换或清空时重新同步。快照和 restart 内容留在远程，只读取已配置路径下的名称、大小和修改时间。
 
 ## 开发
 

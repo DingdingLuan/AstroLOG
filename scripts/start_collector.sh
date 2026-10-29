@@ -19,8 +19,22 @@ fi
 CONFIG=${ASTROLOG_COLLECTOR_CONFIG:-$ROOT/config/collector.yaml}
 [[ -x "$ROOT/.venv/bin/python" ]] || { echo 'Run bash scripts/install.sh first.' >&2; exit 1; }
 [[ -f "$CONFIG" ]] || { echo "Collector configuration not found: $CONFIG" >&2; exit 1; }
-nohup env PYTHONUNBUFFERED=1 "$ROOT/.venv/bin/python" -m logpresent.collector --config "$CONFIG" > "$ROOT/var/log/collector.log" 2>&1 < /dev/null &
-PID=$!
+PID=$("$ROOT/.venv/bin/python" - "$ROOT" "$CONFIG" <<'PY'
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+root = Path(sys.argv[1])
+with (root / "var/log/collector.log").open("wb") as output:
+    child = subprocess.Popen(
+        [str(root / ".venv/bin/python"), "-m", "logpresent.collector", "--config", sys.argv[2]],
+        cwd=root, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT,
+        env={**os.environ, "PYTHONUNBUFFERED": "1"}, start_new_session=True,
+    )
+print(child.pid)
+PY
+)
 printf '%s\n' "$PID" > "$PIDFILE"
 sleep 1
 if ! kill -0 "$PID" 2>/dev/null; then

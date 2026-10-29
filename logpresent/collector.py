@@ -4,6 +4,7 @@ import argparse
 import base64
 from datetime import datetime, timezone
 import fcntl
+import ipaddress
 import json
 import logging
 import os
@@ -38,17 +39,63 @@ def atomic_json(path, document):
     os.replace(temporary, path)
 
 
+def _ssh_config(value, directory):
+    if not isinstance(value, dict) or set(value) - {
+            "host", "user", "port", "identity_file", "certificate_file"}:
+        raise ValueError("ssh must contain host and optional user, port, identity_file, certificate_file")
+    host = value.get("host")
+    if not isinstance(host, str) or not host or len(host) > 253:
+        raise ValueError("ssh.host must be a hostname or IP address")
+    if ":" in host:
+        try:
+            ipaddress.IPv6Address(host)
+        except ValueError:
+            raise ValueError("ssh.host must be a hostname or IP address") from None
+        if "%" in host and not re.fullmatch(r"[A-Za-z0-9_.-]+", host.split("%", 1)[1]):
+            raise ValueError("ssh.host has an invalid IPv6 scope")
+    elif not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,252}", host):
+        raise ValueError("ssh.host must be a hostname or IP address")
+    connection = {"host": host, "port": value.get("port", 22)}
+    if type(connection["port"]) is not int or not 1 <= connection["port"] <= 65535:
+        raise ValueError("ssh.port must be an integer between 1 and 65535")
+    if "user" in value:
+        user = value["user"]
+        if not isinstance(user, str) or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.@+\-$]{0,199}", user):
+            raise ValueError("ssh.user must be a nonempty SSH username")
+        connection["user"] = user
+    for key in ("identity_file", "certificate_file"):
+        if key not in value:
+            continue
+        raw = value[key]
+        if (not isinstance(raw, str) or not raw.strip() or len(raw) > 4096
+                or any(ord(char) < 32 or ord(char) == 127 for char in raw)):
+            raise ValueError(f"ssh.{key} must be a readable file path")
+        file = Path(raw).expanduser()
+        if not file.is_absolute():
+            file = directory / file
+        file = file.resolve()
+        if not file.is_file() or not os.access(file, os.R_OK):
+            raise ValueError(f"ssh.{key} must name an existing readable file")
+        connection[key] = str(file)
+    return connection
+
+
 def load_collector_config(path):
     path = Path(path).expanduser().resolve()
     with path.open(encoding="utf-8") as handle:
         config = yaml.safe_load(handle)
     if not isinstance(config, dict):
         raise ValueError("Collector configuration must be a mapping")
-    hops = config.get("ssh_hops")
-    if (not isinstance(hops, list) or not 1 <= len(hops) <= 4
-            or any(not isinstance(hop, str) or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,199}", hop)
-                   for hop in hops)):
-        raise ValueError("ssh_hops must contain 1–4 SSH config aliases")
+    if "ssh" in config:
+        if "ssh_hops" in config:
+            raise ValueError("Configure either ssh or ssh_hops, not both")
+        config["ssh"] = _ssh_config(config["ssh"], path.parent)
+    else:
+        hops = config.get("ssh_hops")
+        if (not isinstance(hops, list) or not 1 <= len(hops) <= 4
+                or any(not isinstance(hop, str) or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,199}", hop)
+                       for hop in hops)):
+            raise ValueError("ssh_hops must contain 1–4 SSH config aliases, or configure ssh directly")
     remote = config.get("remote_root")
     if not isinstance(remote, str) or not remote.startswith("/") or any(ord(c) < 32 for c in remote):
         raise ValueError("remote_root must be an absolute path")
@@ -85,10 +132,21 @@ def load_collector_config(path):
 
 
 def ssh_command(config, resume):
-    remote = {key: value for key, value in config.items() if key not in ("ssh_hops", "local_root")}
+    remote = {key: value for key, value in config.items() if key not in ("ssh", "ssh_hops", "local_root")}
     remote["resume"] = resume
     code = Path(remote_collect.__file__).read_text(encoding="utf-8")
     command = shlex.join(["python3", "-u", "-c", code, json.dumps(remote, separators=(",", ":"))])
+    if "ssh" in config:
+        connection = config["ssh"]
+        arguments = ["ssh", *SSH_OPTIONS, "-p", str(connection["port"])]
+        if "user" in connection:
+            arguments += ["-l", connection["user"]]
+        if "identity_file" in connection:
+            arguments += ["-i", connection["identity_file"]]
+        if "certificate_file" in connection:
+            # OpenSSH parses -o values as configuration text, including quotes.
+            arguments += ["-o", "CertificateFile=" + json.dumps(connection["certificate_file"], ensure_ascii=False)]
+        return [*arguments, connection["host"], command]
     for hop in reversed(config["ssh_hops"][1:]):
         command = shlex.join(["ssh", *SSH_OPTIONS, hop, command])
     return ["ssh", *SSH_OPTIONS, config["ssh_hops"][0], command]
