@@ -289,7 +289,9 @@ mark { background: var(--accent-border); color: var(--text); border-radius: 2px;
 .position-latest svg { width: 12px; height: 12px; }
 .position-short-label { display: none; }
 .jump-status { color: var(--muted); font: 10px/1.5 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.log-loading { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 13px; background: color-mix(in srgb, var(--log-bg) 90%, transparent); color: var(--muted); font-size: 13px; }
+.log-loading { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 13px; background: color-mix(in srgb, var(--log-bg) 90%, transparent); color: var(--muted); font-size: 13px; pointer-events: none; }
+.log-loading.is-background { inset: 10px 12px auto auto; max-width: calc(100% - 24px); flex-direction: row; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); font-size: 12px; }
+.log-loading.is-background .loading-spinner { flex: 0 0 14px; width: 14px; height: 14px; }
 .loading-spinner { width: 25px; height: 25px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: loading-spin .8s linear infinite; }
 .token-timestamp { color: var(--muted); }
 .token-level { font-weight: 600; }

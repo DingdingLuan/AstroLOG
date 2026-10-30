@@ -129,6 +129,16 @@ The remote reader remembers its byte offset and sends appended bytes over a pers
 .venv/bin/python -m unittest discover -s tests -q
 ```
 
+Optional slow-network scrolling checks use only synthetic browser logs:
+
+```bash
+.venv/bin/python -m pip install -r requirements-browser.txt
+.venv/bin/python -m playwright install chromium
+.venv/bin/python scripts/check_scroll_browser.py
+```
+
+Set `ASTROLOG_BROWSER_CHANNEL=chrome` to use an existing Chrome installation instead.
+
 [MIT license](LICENSE) · [Astroslacker](https://astroslacker.com/)
 
 ---

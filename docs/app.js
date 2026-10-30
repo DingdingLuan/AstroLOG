@@ -18,7 +18,8 @@
     stream: null, connected: false, lastLogUpdate: null,
     selecting: false, selectionRequest: 0, loadingHistory: false, loadingForward: false,
     jumping: false, navigationRequest: 0, positionPercent: 100, jumpKind: "percent",
-    retryTimer: null, scrollTimer: null, programmaticScroll: false,
+    retryTimer: null, scrollTimer: null, programmaticScroll: false, tailController: null,
+    resumeIntentUntil: 0, lastScrollTop: 0, pointerScrolling: false, touchY: null,
     query: "", matches: [], matchIndex: -1, searchTimer: null,
     tab: "logs", inventorySource: null, inventoryPage: 1,
     inventoryTotal: 0, inventoryRequest: 0, inventoryQuery:"", inventorySearchTimer:null,
@@ -50,8 +51,8 @@
     error.status = response.status;
     return error;
   }
-  async function getJSON(path, params) {
-    const response = await fetch(api(path, params), {cache: "no-store"});
+  async function getJSON(path, params, options = {}) {
+    const response = await fetch(api(path, params), {...options, cache: "no-store"});
     if (response.status === 401) showGate("Your session has ended. Enter the passphrase to continue.");
     if (!response.ok) throw await responseError(response);
     return response.json();
@@ -105,6 +106,7 @@
   }
   function setLoading(active,text = "Opening file…") {
     $("log-loading").hidden = !active;
+    $("log-loading").classList.toggle("is-background",active && state.lines.length > 0);
     $("log-loading-text").textContent = text;
     $("jump-go").disabled = active;
   }
@@ -195,6 +197,17 @@
     viewport.scrollTo({top: viewport.scrollTop, behavior: "auto"});
     cancelScrollSuppression();
   }
+  function pauseFollowing() {
+    stopSmoothScroll(); setFollowing(false); state.resumeIntentUntil = 0;
+    clearTimeout(state.retryTimer);
+    if (!state.tailController || !state.lines.length) return;
+    // A late tail reply must not replace the window the reader just chose.
+    state.navigationRequest += 1;
+    state.tailController.abort(); state.tailController = null;
+    state.selecting = false; state.loadingHistory = false; state.loadingForward = false;
+    setLoading(false); updateLoadedState(); openStream(state.selectionRequest);
+  }
+  function armResumeIntent() { state.resumeIntentUntil = Date.now() + 1000; }
   function compactViewport() {return matchMedia("(max-width: 720px), (max-height: 560px)").matches;}
   function queueLayoutUpdate(anchor=null) {
     if(!state.authenticated) return;
@@ -439,6 +452,8 @@
     if(state.layoutFrame!=null) cancelAnimationFrame(state.layoutFrame);
     state.layoutFrame=null; state.layoutAnchor=null;
     stopStream(); stopInventoryPolling(); clearTimeout(state.retryTimer); clearTimeout(state.searchTimer); clearTimeout(state.inventorySearchTimer); cancelScrollSuppression();
+    state.tailController?.abort(); state.tailController = null;
+    state.resumeIntentUntil = 0; state.pointerScrolling = false; state.touchY = null; state.lastScrollTop = 0;
     state.selectionRequest += 1; state.inventoryRequest += 1; state.navigationRequest += 1;
     state.config = null; state.files = []; state.selected = null; state.generation = null;
     state.lines = []; state.cursor = 0; state.olderCursor = 0; state.newerCursor = 0; state.hasMore = false; state.hasNewer = false;
@@ -848,7 +863,7 @@
     if (state.following) {
       notice("The file was restarted or replaced. Opening its latest contents…");
       loadTail(requestId).catch(error => {
-        if (requestId !== state.selectionRequest || !state.authenticated) return;
+        if (error.name === "AbortError" || requestId !== state.selectionRequest || !state.authenticated) return;
         notice(error.status === 404 ? "Waiting for the replacement file…" : `Waiting to reopen the file: ${error.message}`);
         connection(false,"Waiting for file"); retryTail(requestId);
       });
@@ -860,26 +875,35 @@
   async function loadTail(requestId = state.selectionRequest) {
     if (!state.authenticated || !state.selected) return;
     clearTimeout(state.retryTimer); stopStream();
+    state.tailController?.abort();
+    const controller = new AbortController(); state.tailController = controller;
     const id = state.selected.id, ticket=state.navigationRequest;
-    const result = normalizeWindow(await getJSON(fileEndpoint(id,"tail"),{lines:state.config?.display?.initial_lines || 100}));
-    if (!state.authenticated || requestId !== state.selectionRequest || state.selected?.id !== id || ticket!==state.navigationRequest) return;
-    state.generation = result.generation; state.lines = result.lines || [];
-    state.cursor = Number(result.cursor)||0; state.olderCursor = Number(result.older_cursor)||0;
-    state.newerCursor=Number(result.newer_cursor ?? result.cursor)||0; state.hasNewer=Boolean(result.has_newer);
-    state.hasMore = Boolean(result.has_more); state.pending = 0; state.pendingGeneration = null; state.positionPercent=100;
-    state.selected.exists = true; state.selecting = false; state.loadingHistory = false; state.loadingForward=false; state.jumping=false;
-    if (result.size_bytes != null) state.selected.size_bytes = result.size_bytes;
-    if (result.mtime != null) state.lastLogUpdate = result.mtime;
-    setFollowing(true); notice(); renderAllLines(); animateWindow(); markSelectedFile(); updateTimes();
-    $("jump-line").value=""; $("jump-percent").value="100"; state.jumpKind="percent"; setLoading(false);
-    requestAnimationFrame(() => { if(requestId === state.selectionRequest && state.authenticated) toBottom(); });
-    openStream(requestId);
+    try {
+      const result = normalizeWindow(await getJSON(fileEndpoint(id,"tail"),{lines:state.config?.display?.initial_lines || 100},{signal:controller.signal}));
+      if (!state.authenticated || requestId !== state.selectionRequest || state.selected?.id !== id || ticket!==state.navigationRequest) return;
+      const anchor = state.following ? null : captureAnchor();
+      state.generation = result.generation; state.lines = result.lines || [];
+      state.cursor = Number(result.cursor)||0; state.olderCursor = Number(result.older_cursor)||0;
+      state.newerCursor=Number(result.newer_cursor ?? result.cursor)||0; state.hasNewer=Boolean(result.has_newer);
+      state.hasMore = Boolean(result.has_more); state.pending = 0; state.pendingGeneration = null; state.positionPercent=100;
+      state.selected.exists = true; state.selecting = false; state.loadingHistory = false; state.loadingForward=false; state.jumping=false;
+      if (result.size_bytes != null) state.selected.size_bytes = result.size_bytes;
+      if (result.mtime != null) state.lastLogUpdate = result.mtime;
+      setFollowing(state.following); notice(); renderAllLines(); animateWindow(); markSelectedFile(); updateTimes();
+      $("jump-line").value=""; $("jump-percent").value="100"; state.jumpKind="percent"; setLoading(false);
+      if (anchor) restoreAnchor(anchor);
+      requestAnimationFrame(() => { if(requestId === state.selectionRequest && ticket === state.navigationRequest && state.authenticated && state.following) toBottom(); });
+      openStream(requestId);
+    } finally {
+      if (state.tailController === controller) state.tailController = null;
+    }
   }
   async function selectFile(id) {
     const file = state.files.find(item => item.id === id);
     if (!state.authenticated || !file) return;
     if(state.selected?.id===id && state.generation!=null) return;
     stopStream(); clearTimeout(state.retryTimer); cancelScrollSuppression();
+    state.tailController?.abort(); state.tailController = null; state.resumeIntentUntil = 0;
     const requestId = ++state.selectionRequest; state.navigationRequest+=1;
     state.selected = file; state.selecting = true; state.generation = null; state.lines = [];
     state.cursor = 0; state.newerCursor=0; state.pending = 0; state.pendingGeneration = null; state.hasMore = false; state.hasNewer=false;
@@ -894,7 +918,7 @@
     setLoading(true,"Opening file…"); renderFolderSources(); refreshFolders(); refreshInventory();
     try { await loadTail(requestId); }
     catch (error) {
-      if (requestId !== state.selectionRequest || !state.authenticated) return;
+      if (error.name === "AbortError" || requestId !== state.selectionRequest || !state.authenticated) return;
       state.selecting = false; updateLoadedState();
       setLoading(false);
       if (error.status === 404) {
@@ -909,7 +933,7 @@
       if (requestId !== state.selectionRequest || !state.authenticated) return;
       try { await loadTail(requestId); }
       catch (error) {
-        if (requestId !== state.selectionRequest || !state.authenticated) return;
+        if (error.name === "AbortError" || requestId !== state.selectionRequest || !state.authenticated) return;
         if (error.status !== 404) notice(`Waiting to reopen the log: ${error.message}`);
         retryTail(requestId);
       }
@@ -942,10 +966,12 @@
   async function resumeLive() {
     if (!state.authenticated || state.selecting || !state.selected) return;
     state.navigationRequest+=1; state.jumping=false;
+    const requestId = state.selectionRequest, ticket = state.navigationRequest;
+    setFollowing(true); state.resumeIntentUntil = 0;
     state.selecting = true; $("follow-label").textContent = "Opening…"; setLoading(true,"Opening latest output…");
     try { await loadTail(); }
     catch (error) {
-      if (!state.authenticated) return;
+      if (error.name === "AbortError" || !state.authenticated || requestId !== state.selectionRequest || ticket !== state.navigationRequest) return;
       notice(`Unable to resume live: ${error.message}`); state.selecting = false; setFollowing(false); setLoading(false);
       if (error.status === 404) retryTail(state.selectionRequest);
     }
@@ -1029,7 +1055,7 @@
       $(`${name}-panel`).hidden = !active;
     }
     if (tab === "inventory") {refreshFolders(); refreshInventory();}
-    else if (state.following) requestAnimationFrame(() => toBottom());
+    else if (state.following) requestAnimationFrame(() => { if(state.following && state.tab === "logs") toBottom(); });
     queueLayoutUpdate();
   }
   const folderKey=(source,path)=>JSON.stringify([source,path || ""]);
@@ -1271,13 +1297,17 @@
     $("search-count").textContent = `${state.matchIndex+1}/${state.matches.length} matching lines`;
   }
   function handleScroll() {
-    if (!state.authenticated || state.programmaticScroll || state.selecting || state.jumping || state.tab !== "logs") return;
     const viewport = $("log-viewport");
+    const delta = viewport.scrollTop - state.lastScrollTop; state.lastScrollTop = viewport.scrollTop;
+    if (!state.authenticated || state.programmaticScroll || state.tab !== "logs") return;
+    if (state.pointerScrolling && delta < 0) pauseFollowing();
+    if (state.pointerScrolling && delta > 0) armResumeIntent();
+    if (state.selecting || state.jumping) return;
     const distance = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-    if (distance > 45 && state.following) setFollowing(false);
+    if (distance > 45 && state.following) pauseFollowing();
     // Returning to the actual bottom is an explicit request to follow again.
     // Reopen a fresh tail because the SSE cursor kept advancing while paused.
-    if (!state.following && distance <= 5 && !state.loadingHistory && !state.loadingForward) {
+    if (!state.following && distance <= 5 && Date.now() < state.resumeIntentUntil && !state.loadingHistory && !state.loadingForward) {
       if(state.hasNewer) loadForward(); else resumeLive();
       return;
     }
@@ -1296,7 +1326,7 @@
     $("logs-tab").addEventListener("click",() => setTab("logs"));
     $("inventory-tab").addEventListener("click",() => setTab("inventory"));
     $("follow-toggle").addEventListener("click",() => {
-      if (state.following) {stopSmoothScroll(); setFollowing(false);} else resumeLive();
+      if (state.following) pauseFollowing(); else resumeLive();
     });
     $("jump-latest").addEventListener("click",resumeLive);
     $("jump-latest-button").addEventListener("click",resumeLive);
@@ -1312,17 +1342,25 @@
     });
     $("log-viewport").addEventListener("scroll",handleScroll,{passive:true});
     $("log-viewport").addEventListener("wheel",event => {
-      stopSmoothScroll();
-      if (event.deltaY < 0 && state.following) setFollowing(false);
-      else if (event.deltaY > 0) requestAnimationFrame(handleScroll);
+      if (event.deltaY < 0) pauseFollowing();
+      else if (event.deltaY > 0) {stopSmoothScroll(); armResumeIntent(); requestAnimationFrame(handleScroll);}
     },{passive:true});
     $("log-viewport").addEventListener("pointerdown",() => {
-      stopSmoothScroll();
+      stopSmoothScroll(); state.pointerScrolling = true;
     },{passive:true});
-    $("log-viewport").addEventListener("touchmove",() => {stopSmoothScroll(); if(state.following) setFollowing(false);},{passive:true});
+    window.addEventListener("pointerup",() => {state.pointerScrolling = false;},{passive:true});
+    window.addEventListener("pointercancel",() => {state.pointerScrolling = false;},{passive:true});
+    $("log-viewport").addEventListener("touchstart",event => {state.touchY = event.touches[0]?.clientY ?? null;},{passive:true});
+    $("log-viewport").addEventListener("touchmove",event => {
+      const y = event.touches[0]?.clientY;
+      if (y == null || state.touchY == null) return;
+      if (y > state.touchY) pauseFollowing();
+      else if (y < state.touchY) {stopSmoothScroll(); armResumeIntent();}
+      state.touchY = y;
+    },{passive:true});
     $("log-viewport").addEventListener("keydown",event => {
-      if (["ArrowUp","PageUp","Home"].includes(event.key)) {stopSmoothScroll(); setFollowing(false);}
-      if (["ArrowDown","PageDown","End"].includes(event.key)) {cancelScrollSuppression(); requestAnimationFrame(handleScroll);}
+      if (["ArrowUp","PageUp","Home"].includes(event.key)) pauseFollowing();
+      if (["ArrowDown","PageDown","End"].includes(event.key)) {cancelScrollSuppression(); armResumeIntent(); requestAnimationFrame(handleScroll);}
     });
     $("log-search").addEventListener("input",event => {
       clearTimeout(state.searchTimer); const value = event.target.value;
