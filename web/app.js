@@ -158,8 +158,10 @@
     $("stream-status").textContent = label || (connected ? (state.following ? "Live" : "Paused") : "Reconnecting");
   }
   function updateTimes() {
-    $("log-update-time").textContent = state.lastLogUpdate ? `Updated ${relativeTime(state.lastLogUpdate)}` : "Waiting for output";
-    $("log-update-time").title = state.lastLogUpdate ? formatDate(state.lastLogUpdate) : "";
+    const label = state.lastLogUpdate ? `File modified ${relativeTime(state.lastLogUpdate)}` : "Waiting for output";
+    const title = state.lastLogUpdate ? formatDate(state.lastLogUpdate) : "";
+    if ($("log-update-time").textContent !== label) $("log-update-time").textContent = label;
+    if ($("log-update-time").title !== title) $("log-update-time").title = title;
   }
 
   function savedTheme() {
@@ -756,7 +758,19 @@
     $("search-next").hidden = !state.query; $("search-next").disabled = !state.matches.length;
     $("search-shortcut").hidden = Boolean(state.query);
   }
-  function renderAllLines() {
+  function renderAllLines(previousLines = null) {
+    if (previousLines) {
+      // Atomic snapshot writers replace the file, not necessarily its contents.
+      const container = $("log-lines"), rows = Array.from(container.children);
+      state.lines.forEach((line,index) => {
+        const previous = previousLines[index];
+        if (rows[index] && previous && ["text","start","end","line_number"].every(key => previous[key] === line[key])) return;
+        const row = createLine(line);
+        if (rows[index]) rows[index].replaceWith(row); else container.append(row);
+      });
+      while (container.children.length > state.lines.length) container.lastElementChild.remove();
+      updateLoadedState(); return;
+    }
     const fragment = document.createDocumentFragment();
     for (const line of state.lines) fragment.append(createLine(line));
     $("log-lines").replaceChildren(fragment); updateLoadedState();
@@ -861,8 +875,7 @@
     state.loadingHistory=false; state.loadingForward=false;
     state.pendingGeneration = payload.generation || true;
     if (state.following) {
-      notice("The file was restarted or replaced. Opening its latest contents…");
-      loadTail(requestId).catch(error => {
+      loadTail(requestId,{background:true}).catch(error => {
         if (error.name === "AbortError" || requestId !== state.selectionRequest || !state.authenticated) return;
         notice(error.status === 404 ? "Waiting for the replacement file…" : `Waiting to reopen the file: ${error.message}`);
         connection(false,"Waiting for file"); retryTail(requestId);
@@ -872,7 +885,7 @@
       setFollowing(false); $("jump-label").textContent = "File restarted · Open latest";
     }
   }
-  async function loadTail(requestId = state.selectionRequest) {
+  async function loadTail(requestId = state.selectionRequest, {background = false} = {}) {
     if (!state.authenticated || !state.selected) return;
     clearTimeout(state.retryTimer); stopStream();
     state.tailController?.abort();
@@ -881,7 +894,7 @@
     try {
       const result = normalizeWindow(await getJSON(fileEndpoint(id,"tail"),{lines:state.config?.display?.initial_lines || 100},{signal:controller.signal}));
       if (!state.authenticated || requestId !== state.selectionRequest || state.selected?.id !== id || ticket!==state.navigationRequest) return;
-      const anchor = state.following ? null : captureAnchor();
+      const anchor = state.following ? null : captureAnchor(), previousLines = background ? state.lines : null;
       state.generation = result.generation; state.lines = result.lines || [];
       state.cursor = Number(result.cursor)||0; state.olderCursor = Number(result.older_cursor)||0;
       state.newerCursor=Number(result.newer_cursor ?? result.cursor)||0; state.hasNewer=Boolean(result.has_newer);
@@ -889,7 +902,9 @@
       state.selected.exists = true; state.selecting = false; state.loadingHistory = false; state.loadingForward=false; state.jumping=false;
       if (result.size_bytes != null) state.selected.size_bytes = result.size_bytes;
       if (result.mtime != null) state.lastLogUpdate = result.mtime;
-      setFollowing(state.following); notice(); renderAllLines(); animateWindow(); markSelectedFile(); updateTimes();
+      setFollowing(state.following); notice(); renderAllLines(previousLines);
+      if (!background) animateWindow();
+      markSelectedFile(); updateTimes();
       $("jump-line").value=""; $("jump-percent").value="100"; state.jumpKind="percent"; setLoading(false);
       if (anchor) restoreAnchor(anchor);
       requestAnimationFrame(() => { if(requestId === state.selectionRequest && ticket === state.navigationRequest && state.authenticated && state.following) toBottom(); });

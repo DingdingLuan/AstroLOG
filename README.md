@@ -129,7 +129,7 @@ The remote reader remembers its byte offset and sends appended bytes over a pers
 .venv/bin/python -m unittest discover -s tests -q
 ```
 
-Optional slow-network scrolling checks use only synthetic browser logs:
+Optional scrolling and snapshot-refresh checks use only synthetic browser logs:
 
 ```bash
 .venv/bin/python -m pip install -r requirements-browser.txt
@@ -138,6 +138,10 @@ Optional slow-network scrolling checks use only synthetic browser logs:
 ```
 
 Set `ASTROLOG_BROWSER_CHANNEL=chrome` to use an existing Chrome installation instead.
+
+Atomic file replacements refresh in place without replaying the opening animation.
+Unchanged rows are preserved, and paused views stay paused. The footer's "File
+modified" time is the file's modification time, not the stream heartbeat time.
 
 [MIT license](LICENSE) · [Astroslacker](https://astroslacker.com/)
 

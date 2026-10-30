@@ -236,6 +236,114 @@ class ScrollTests(unittest.TestCase):
         self.assertFalse(self.snapshot()["following"])
         self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth<=innerWidth+1"))
 
+    def snapshot_file(self):
+        self.open()
+        self.page.evaluate("""async()=>{
+          const base=new URL('./',document.baseURI),original=window.fetch;
+          window.__snapshot=await (await original(new URL('api/logs/observatory.run/tail?lines=100',base))).json();
+          window.__snapshot.mtime=Date.now()/1000-120;
+          window.__snapshotDelay=0;window.__snapshotStreams=[];
+          window.fetch=async(input,options={})=>{
+            if(new URL(String(input),base).pathname.endsWith('/tail')){
+              const body=JSON.stringify(window.__snapshot);
+              await new Promise(resolve=>setTimeout(resolve,window.__snapshotDelay));
+              return new Response(body,{status:200,headers:{'Content-Type':'application/json'}});
+            }
+            return original(input,options);
+          };
+          window.EventSource=class extends EventTarget{
+            constructor(){super();this.closed=false;window.__snapshotStreams.push(this);
+              queueMicrotask(()=>{if(!this.closed){this.onopen?.(new Event('open'));this.emit('status',{connected:true,exists:true,size_bytes:window.__snapshot.size_bytes,mtime:window.__snapshot.mtime});}});
+            }
+            emit(type,data){this.dispatchEvent(new MessageEvent(type,{data:JSON.stringify(data)}));}
+            close(){this.closed=true;}
+          };
+          window.__rewriteSnapshot=change=>{
+            window.__snapshot.generation+='-replacement';
+            if(change){const row=window.__snapshot.lines[10];row.text=row.text.replace('INFO','WARN');}
+            window.__snapshotStreams.at(-1).emit('reset',{file_id:'observatory.run',generation:window.__snapshot.generation});
+          };
+        }""")
+        self.page.locator("#follow-toggle").click()
+        self.page.locator("#jump-latest-button").click()
+        self.page.wait_for_function("window.__snapshotStreams.length===1 && document.querySelector('#log-loading').hidden")
+        self.page.wait_for_timeout(180)
+        self.page.evaluate("""()=>{
+          window.__originalRows=[...document.querySelector('#log-lines').children];window.__rowMutations=0;window.__animationChanges=0;
+          new MutationObserver(rows=>{window.__rowMutations+=rows.filter(r=>r.type==='childList').length;window.__animationChanges+=rows.filter(r=>r.type==='attributes').length;})
+            .observe(document.querySelector('#log-lines'),{childList:true,attributes:true,attributeFilter:['class']});
+        }""")
+
+    def test_identical_atomic_replacement_keeps_rows_without_flashing(self):
+        self.snapshot_file()
+        title = self.page.locator("#log-update-time").get_attribute("title")
+        for count in range(3):
+            self.page.evaluate("window.__rewriteSnapshot(false)")
+            self.page.wait_for_function("n=>window.__snapshotStreams.length===n", arg=count + 2)
+        self.page.wait_for_timeout(100)
+        self.assertEqual(self.page.evaluate("window.__rowMutations"), 0)
+        self.assertEqual(self.page.evaluate("window.__animationChanges"), 0)
+        self.assertEqual(self.page.locator("#log-update-time").get_attribute("title"), title)
+        self.assertTrue(self.page.locator("#viewer-notice").is_hidden())
+
+    def test_changed_snapshot_only_replaces_changed_row(self):
+        self.snapshot_file()
+        self.page.evaluate("window.__rewriteSnapshot(true)")
+        self.page.wait_for_function("window.__snapshotStreams.length===2")
+        self.assertIn("WARN", self.page.locator("#log-lines .log-line").nth(10).inner_text())
+        self.assertEqual(self.page.evaluate("[...document.querySelector('#log-lines').children].filter((row,i)=>row===window.__originalRows[i]).length"), 99)
+        self.assertEqual(self.page.evaluate("window.__animationChanges"), 0)
+        self.assertEqual(self.errors, [])
+
+    def test_idle_status_does_not_claim_a_new_file_update(self):
+        self.snapshot_file()
+        title = self.page.locator("#log-update-time").get_attribute("title")
+        for _ in range(3):
+            self.page.evaluate("window.__snapshotStreams.at(-1).emit('status',{connected:true,exists:true,size_bytes:window.__snapshot.size_bytes,mtime:window.__snapshot.mtime})")
+        self.assertEqual(self.page.locator("#log-update-time").get_attribute("title"), title)
+        self.assertNotIn("just now", self.page.locator("#log-update-time").inner_text())
+        self.assertEqual(self.page.evaluate("window.__rowMutations"), 0)
+
+    def test_paused_snapshot_is_not_replaced_until_resume(self):
+        self.snapshot_file()
+        self.scroll_up()
+        before = self.snapshot()
+        self.page.evaluate("window.__rewriteSnapshot(true)")
+        self.page.wait_for_timeout(200)
+        self.assertEqual(self.page.evaluate("window.__snapshotStreams.length"), 1)
+        self.assertEqual(self.page.evaluate("window.__rowMutations"), 0)
+        self.assertFalse(self.snapshot()["following"])
+        self.assertAlmostEqual(self.snapshot()["top"], before["top"], delta=3)
+
+    def test_slow_snapshot_reply_does_not_override_scroll_pause(self):
+        self.snapshot_file()
+        self.page.evaluate("window.__snapshotDelay=700;window.__rewriteSnapshot(true)")
+        self.scroll_up()
+        before = self.snapshot()
+        self.page.wait_for_timeout(900)
+        self.assertFalse(self.snapshot()["following"])
+        self.assertAlmostEqual(self.snapshot()["top"], before["top"], delta=3)
+        self.assertEqual(self.page.evaluate("window.__rowMutations"), 0)
+
+    def test_snapshot_can_shrink_to_empty_without_stale_rows(self):
+        self.snapshot_file()
+        self.page.evaluate("window.__snapshot.lines=window.__snapshot.lines.slice(0,3);window.__rewriteSnapshot(false)")
+        self.page.wait_for_function("document.querySelector('#log-lines').children.length===3")
+        self.page.evaluate("window.__snapshot.lines=[];window.__snapshot.size_bytes=0;window.__snapshot.cursor=0;window.__snapshot.older_cursor=0;window.__snapshot.newer_cursor=0;window.__snapshot.has_more=false;window.__rewriteSnapshot(false)")
+        self.page.wait_for_function("document.querySelector('#log-lines').children.length===0")
+        self.assertTrue(self.page.locator("#log-empty").is_visible())
+        self.assertTrue(self.snapshot()["following"])
+        self.assertEqual(self.errors, [])
+
+    def test_mobile_snapshot_refresh_does_not_flash_or_overflow(self):
+        self.page.set_viewport_size({"width": 390, "height": 844})
+        self.snapshot_file()
+        self.page.evaluate("window.__rewriteSnapshot(false)")
+        self.page.wait_for_function("window.__snapshotStreams.length===2")
+        self.assertEqual(self.page.evaluate("window.__rowMutations"), 0)
+        self.assertEqual(self.page.evaluate("window.__animationChanges"), 0)
+        self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth<=innerWidth+1"))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
