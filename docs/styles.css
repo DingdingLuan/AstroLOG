@@ -88,6 +88,15 @@ svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width:
 .theme-toggle, .logout-button, .auth-theme-toggle { display: flex; align-items: center; gap: 7px; background: none; border: 0; color: var(--muted); font-size: 12px; padding: 6px 0; }
 .theme-toggle svg, .logout-button svg { width: 16px; height: 16px; }
 .theme-toggle:hover, .logout-button:hover, .auth-theme-toggle:hover { color: var(--accent); }
+.theme-toggle { position: relative; min-width: 30px; min-height: 30px; }
+.theme-toggle select, .auth-theme-toggle select { border: 0; background: transparent; color: inherit; cursor: pointer; padding: 5px 2px; font-size: inherit; }
+.theme-toggle select option, .auth-theme-toggle select option { color: var(--text); background: var(--panel); }
+.auth-theme-toggle { width: fit-content; }
+.theme-toggle:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+@media (max-width: 480px) {
+  .theme-toggle { justify-content: center; }
+  .theme-toggle select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
+}
 .action-divider { width: 1px; height: 16px; background: var(--border); }
 .main-content { padding: 0 34px 27px; display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .workspace-navigation { display: flex; align-items: center; justify-content: space-between; height: 73px; flex: none; gap: 15px; }

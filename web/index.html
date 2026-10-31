@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#e9edf1">
+  <script src="./theme.js"></script>
   <title>AstroLOG</title>
   <link rel="icon" href="./favicon.ico?v=20261023-brand2" type="image/x-icon">
   <link rel="icon" href="./favicon-32.png?v=20261023-brand2" type="image/png" sizes="32x32">
@@ -31,7 +32,7 @@
         <button id="auth-submit" class="auth-submit" type="submit" disabled><span>Open workspace</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5"/></svg></button>
       </form>
       <div class="auth-footnote"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="8" width="12" height="9" rx="2"/><path d="M6.5 8V5.5a3.5 3.5 0 0 1 7 0V8"/></svg>Private workspace · Read-only access</div>
-      <button type="button" id="auth-theme-toggle" class="auth-theme-toggle" aria-label="Switch color theme">Switch appearance</button>
+      <label class="auth-theme-toggle"><select id="auth-theme-mode" aria-label="Appearance"><option value="auto">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
     </div>
   </section>
 
@@ -39,7 +40,7 @@
     <header class="topbar">
       <a class="brand" href="./" aria-label="AstroLOG home"><span class="brand-icon" aria-hidden="true"><img src="./astrolog-mark.svg?v=20261023-brand2" alt="" width="34" height="34"></span><span id="brand-title">AstroLOG</span></a>
       <span class="project-divider" aria-hidden="true">/</span><span id="project-title" class="project-title">Workspace</span>
-      <div class="topbar-actions"><button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark theme"><svg id="theme-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16.4 12.6A7 7 0 0 1 7.4 3.6a7 7 0 1 0 9 9Z"/></svg><span id="theme-label">Dark</span></button><span id="auth-divider" class="action-divider"></span><button id="logout-button" class="logout-button" type="button">Sign out<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 4H4v12h4m4-10 4 4-4 4m-5-4h9"/></svg></button></div>
+      <div class="topbar-actions"><label class="theme-toggle"><svg id="theme-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="3" width="16" height="11" rx="2"/><path d="M7 18h6m-3-4v4"/></svg><select id="theme-mode" aria-label="Appearance"><option value="auto">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label><span id="auth-divider" class="action-divider"></span><button id="logout-button" class="logout-button" type="button">Sign out<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 4H4v12h4m4-10 4 4-4 4m-5-4h9"/></svg></button></div>
     </header>
 
     <main class="main-content">

@@ -9,7 +9,6 @@
   const windowCache = new Map();
   const FOLDER_NODE_LIMIT = 512;
   let cachedBytes = 0;
-  const THEME_KEY = "logpresent.theme";
   const state = {
     authenticated: false, authEnabled: true, authEpoch: 0,
     config: null, files: [], selected: null, generation: null,
@@ -163,23 +162,6 @@
     if ($("log-update-time").textContent !== label) $("log-update-time").textContent = label;
     if ($("log-update-time").title !== title) $("log-update-time").title = title;
   }
-
-  function savedTheme() {
-    try { return localStorage.getItem(THEME_KEY); } catch (_) { return null; }
-  }
-  function setTheme(theme, persist = false) {
-    const selected = theme === "dark" ? "dark" : "light";
-    document.documentElement.dataset.theme = selected;
-    const dark = selected === "dark";
-    $("theme-label").textContent = dark ? "Light" : "Dark";
-    $("theme-toggle").setAttribute("aria-label", `Switch to ${dark ? "light" : "dark"} theme`);
-    $("theme-icon").innerHTML = dark
-      ? '<circle cx="10" cy="10" r="3.5"/><path d="M10 1v2m0 14v2M1 10h2m14 0h2M3.6 3.6 5 5m10 10 1.4 1.4M3.6 16.4 5 15M15 5l1.4-1.4"/>'
-      : '<path d="M16.4 12.6A7 7 0 0 1 7.4 3.6a7 7 0 1 0 9 9Z"/>';
-    document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#151515" : "#e9edf1");
-    if (persist) { try { localStorage.setItem(THEME_KEY, selected); } catch (_) {} }
-  }
-  function toggleTheme() { setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark", true); }
 
   function stopStream() {
     if (state.stream) state.stream.close();
@@ -571,10 +553,6 @@
     $("brand-title").textContent = display.title || "AstroLOG";
     $("project-title").textContent = display.project || "Workspace";
     renderServerName();
-    if (!savedTheme()) {
-      const theme = display.theme === "auto" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : display.theme;
-      setTheme(theme);
-    }
   }
   function treeParts(label,icon,leaf=false) {
     const element=document.createElement("div"); element.className="tree-node";
@@ -1330,8 +1308,6 @@
   }
   function bindEvents() {
     $("auth-form").addEventListener("submit",login);
-    $("theme-toggle").addEventListener("click",toggleTheme);
-    $("auth-theme-toggle").addEventListener("click",toggleTheme);
     $("logout-button").addEventListener("click",logout);
     $("log-explorer-toggle").addEventListener("click",()=>setExplorerExpanded("logs",!state.explorerExpanded.logs,{manual:true}));
     $("folder-explorer-toggle").addEventListener("click",()=>setExplorerExpanded("inventory",!state.explorerExpanded.inventory,{manual:true}));
@@ -1430,7 +1406,15 @@
     }
   }
   async function initialize() {
-    bindEvents(); applyResponsiveLayout(); setTheme(savedTheme() || "light"); updateTimes();
+    // Older cached HTML may not yet include the pre-paint appearance script.
+    if (!window.AstroLOGTheme) {
+      await new Promise(resolve => {
+        const script = document.createElement("script"); script.src = new URL("theme.js",base);
+        script.onload = resolve; script.onerror = resolve; document.head.append(script);
+      });
+    }
+    window.AstroLOGTheme?.bind();
+    bindEvents(); applyResponsiveLayout(); updateTimes();
     try {
       const response = await fetch(api("auth/status"),{cache:"no-store"});
       if (!response.ok) throw await responseError(response);

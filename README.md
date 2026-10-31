@@ -129,12 +129,13 @@ The remote reader remembers its byte offset and sends appended bytes over a pers
 .venv/bin/python -m unittest discover -s tests -q
 ```
 
-Optional scrolling and snapshot-refresh checks use only synthetic browser logs:
+Optional scrolling, snapshot-refresh, and appearance checks use only synthetic browser data:
 
 ```bash
 .venv/bin/python -m pip install -r requirements-browser.txt
 .venv/bin/python -m playwright install chromium
 .venv/bin/python scripts/check_scroll_browser.py
+.venv/bin/python scripts/check_theme_browser.py
 ```
 
 Set `ASTROLOG_BROWSER_CHANNEL=chrome` to use an existing Chrome installation instead.
@@ -142,6 +143,11 @@ Set `ASTROLOG_BROWSER_CHANNEL=chrome` to use an existing Chrome installation ins
 Atomic file replacements refresh in place without replaying the opening animation.
 Unchanged rows are preserved, and paused views stay paused. The footer's "File
 modified" time is the file's modification time, not the stream heartbeat time.
+
+Appearance defaults to **System**, including the passphrase screen, and updates
+when the browser's color preference changes. The appearance menu can pin Light
+or Dark, or return to System; this choice is saved in the browser. The legacy
+server `display.theme` field no longer overrides the browser's appearance.
 
 [MIT license](LICENSE) · [Astroslacker](https://astroslacker.com/)
 
