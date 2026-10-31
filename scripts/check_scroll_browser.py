@@ -92,7 +92,7 @@ class ScrollTests(unittest.TestCase):
         return base.rstrip("/") + f"/?delay={delay}"
 
     def open(self, delay=0):
-        self.page.goto(self.url(delay))
+        self.page.goto(self.url(delay), wait_until='domcontentloaded', timeout=60000)
         self.page.locator("#log-lines .log-line").first.wait_for()
         self.page.wait_for_timeout(350)
 

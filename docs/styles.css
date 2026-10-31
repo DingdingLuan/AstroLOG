@@ -92,7 +92,7 @@ svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width:
 .theme-toggle { min-width: 34px; min-height: 34px; }
 .theme-toggle select, .auth-theme-toggle select { border: 0; background: transparent; color: inherit; cursor: pointer; padding: 5px 2px; font-size: inherit; }
 .theme-toggle select option, .auth-theme-toggle select option { color: var(--text); background: var(--panel); }
-.auth-theme-toggle { width: fit-content; }
+.auth-theme-toggle { display: flex; width: fit-content; }
 .theme-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px; padding: 6px 8px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--muted); font-size: 13px; line-height: 20px; }
 .theme-trigger:hover, .theme-trigger[aria-expanded="true"] { color: var(--text); background: var(--panel-subtle); border-color: var(--border); }
 .theme-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

@@ -93,7 +93,8 @@
       menu.hidden = false;
       const rect = button.getBoundingClientRect();
       const width = menu.offsetWidth, height = menu.offsetHeight;
-      menu.style.left = `${Math.max(12, Math.min(rect.right - width, innerWidth - width - 12))}px`;
+      const left = container.classList.contains("auth-theme-toggle") ? rect.left + (rect.width - width) / 2 : rect.right - width;
+      menu.style.left = `${Math.max(12, Math.min(left, innerWidth - width - 12))}px`;
       menu.style.top = `${Math.max(12, rect.bottom + height + 6 <= innerHeight - 12 ? rect.bottom + 6 : rect.top - height - 6)}px`;
       button.setAttribute("aria-expanded", "true");
       opened = {button, menu};
@@ -138,7 +139,9 @@
     if (opened && !opened.menu.contains(event.target) && !opened.button.contains(event.target)) closeMenu();
   });
   window.addEventListener("resize", () => closeMenu());
-  window.addEventListener("scroll", () => closeMenu(), true);
+  window.addEventListener("scroll", event => {
+    if ([document, document.documentElement, document.body].includes(event.target)) closeMenu();
+  }, true);
   system.addEventListener("change", () => { if (mode === "auto") apply(); });
   window.addEventListener("storage", event => {
     if (event.key === key || event.key === null) { mode = read(); apply(); }

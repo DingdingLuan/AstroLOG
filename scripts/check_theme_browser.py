@@ -78,7 +78,7 @@ class BrowserFixture:
         return base.rstrip('/') + '/?' + query
 
     def open(self, page, gate=False, extra=''):
-        page.goto(self.url(('gate=1&' if gate else '') + extra))
+        page.goto(self.url(('gate=1&' if gate else '') + extra), wait_until='domcontentloaded', timeout=60000)
         page.locator('#auth-theme-mode-trigger' if gate else '#theme-mode-trigger').wait_for(state='visible')
         page.wait_for_function("Boolean(document.querySelector('#theme-mode').dataset.bound)")
 
@@ -270,6 +270,9 @@ class ThemeTests(BrowserFixture, unittest.TestCase):
         menu = page.locator('#auth-theme-mode-menu')
         self.assertTrue(menu.is_visible())
         box = menu.bounding_box()
+        trigger = page.locator('#auth-theme-mode-trigger').bounding_box()
+        self.assertAlmostEqual(trigger['x'] + trigger['width'] / 2, 160, delta=1)
+        self.assertAlmostEqual(box['x'] + box['width'] / 2, 160, delta=1)
         self.assertGreaterEqual(box['y'], 12)
         self.assertLessEqual(box['y'] + box['height'], 589)
         menu.get_by_role('menuitemradio', name='Light', exact=True).click()
@@ -283,6 +286,18 @@ class ThemeTests(BrowserFixture, unittest.TestCase):
         self.assertEqual(page.locator('.theme-menu').count(), 2)
         self.choose(page, 'light')
         self.expect(page, 'light', 'light')
+
+    def test_live_log_scrolling_does_not_dismiss_the_menu(self):
+        page = self.page()
+        self.open(page)
+        page.locator('#theme-mode-trigger').click()
+        page.locator('#log-viewport').evaluate("e=>e.dispatchEvent(new Event('scroll'))")
+        self.assertTrue(page.locator('#theme-mode-menu').is_visible())
+        page.get_by_role('menuitemradio', name='Light', exact=True).click()
+        self.expect(page, 'light', 'light')
+        page.locator('#theme-mode-trigger').click()
+        page.evaluate("document.dispatchEvent(new Event('scroll'))")
+        self.assertFalse(page.locator('#theme-mode-menu').is_visible())
 
 
 if __name__ == '__main__':
