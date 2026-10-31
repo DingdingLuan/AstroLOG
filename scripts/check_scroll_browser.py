@@ -39,6 +39,8 @@ class Handler(BaseHTTPRequestHandler):
         name = urlsplit(self.path).path
         if name == "/demo-adapter.js":
             source = ROOT / "demo/demo-adapter.js"
+        elif name == "/static/theme.js":
+            source = ROOT / "web/theme.js"
         else:
             source = ROOT / "web" / ("index.html" if name == "/" else name.lstrip("/"))
         if source.parent not in {ROOT / "web", ROOT / "demo"} or not source.is_file():

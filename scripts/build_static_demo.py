@@ -10,8 +10,10 @@ def main():
     destination = ROOT / "docs"
     destination.mkdir(exist_ok=True)
     for source in (ROOT / "web").iterdir():
-        if source.is_file() and source.suffix in {".html", ".css", ".js", ".svg", ".png", ".ico"}:
+        if source.is_file() and source.name != "theme.js" and source.suffix in {".html", ".css", ".js", ".svg", ".png", ".ico"}:
             shutil.copy2(source, destination / source.name)
+    (destination / "static").mkdir(exist_ok=True)
+    shutil.copy2(ROOT / "web/theme.js", destination / "static/theme.js")
     shutil.copy2(ROOT / "demo" / "demo-adapter.js", destination / "demo-adapter.js")
     index = destination / "index.html"
     content = index.read_text(encoding="utf-8")

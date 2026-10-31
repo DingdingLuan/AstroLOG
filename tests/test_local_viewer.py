@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import builtins
 import io
+from html.parser import HTMLParser
 import os
 from pathlib import Path
 import tempfile
@@ -72,6 +73,24 @@ class LocalViewerTests(unittest.TestCase):
         response = self.client.get("/api/logs/demo.main/tail", params=params)
         self.assertEqual(response.status_code, 200, response.text)
         return response.json()
+
+    def test_theme_bootstrap_is_reachable_through_real_application_routes(self):
+        class Assets(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.sources = []
+
+            def handle_starttag(self, tag, attrs):
+                if tag == "script" and dict(attrs).get("src"):
+                    self.sources.append(dict(attrs)["src"])
+
+        parser = Assets()
+        parser.feed(self.client.get("/").text)
+        self.assertIn("./static/theme.js", parser.sources)
+        for source in parser.sources:
+            response = self.client.get("/" + source.removeprefix("./"))
+            self.assertEqual(response.status_code, 200, source)
+        self.assertIn("AstroLOGTheme", self.client.get("/static/theme.js").text)
 
     def write_numbered(self, count):
         self.log.write_text(

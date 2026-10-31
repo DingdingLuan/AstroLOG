@@ -32,7 +32,7 @@ class Handler(ScrollHandler):
             return super().do_GET()
         html = (ROOT / 'web/index.html').read_text(encoding='utf-8')
         if 'legacy=1' in self.path:
-            html = html.replace('  <script src="./theme.js"></script>\n', '')
+            html = html.replace('  <script src="./static/theme.js"></script>\n', '')
         html = html.replace('<script src="./app.js" defer></script>',
                             '<script src="./demo-adapter.js"></script><script>' + BOOTSTRAP + '</script><script src="./app.js" defer></script>')
         data = html.encode()
@@ -171,7 +171,7 @@ class ThemeTests(unittest.TestCase):
         if os.environ.get('ASTROLOG_BROWSER_BASE_URL'):
             def old_html(route):
                 response = route.fetch()
-                route.fulfill(response=response, body=response.text().replace('  <script src="./theme.js"></script>\n', ''))
+                route.fulfill(response=response, body=response.text().replace('  <script src="./static/theme.js"></script>\n', ''))
             page.route('**/?legacy=1', old_html)
         self.open(page, extra='legacy=1')
         self.expect(page, 'dark')

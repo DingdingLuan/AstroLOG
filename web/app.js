@@ -1409,7 +1409,7 @@
     // Older cached HTML may not yet include the pre-paint appearance script.
     if (!window.AstroLOGTheme) {
       await new Promise(resolve => {
-        const script = document.createElement("script"); script.src = new URL("theme.js",base);
+        const script = document.createElement("script"); script.src = new URL("static/theme.js",base);
         script.onload = resolve; script.onerror = resolve; document.head.append(script);
       });
     }
