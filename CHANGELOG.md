@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Use the official GitHub Invertocat for the source link.
+- Give the appearance control a persistent Theme label and sun/moon icon, including on mobile; show Follow system inside the menu instead of as the button name.
+
 ## 0.4.2 - 2026-10-31
 
 - Replace native appearance popups with consistent themed menus on the login screen and workspace, including keyboard navigation, checked states, and small-screen positioning.

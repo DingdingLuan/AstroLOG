@@ -10,7 +10,21 @@
   };
   let mode = read();
   let opened = null;
-  const labels = {auto: "System", light: "Light", dark: "Dark"};
+  const labels = {auto: "Follow system", light: "Light", dark: "Dark"};
+  /* SunMoon icon: Lucide, https://github.com/lucide-icons/lucide (ISC).
+   * Copyright (c) 2026 Lucide Icons and Contributors
+   * Permission to use, copy, modify, and/or distribute this software for any
+   * purpose with or without fee is hereby granted, provided that the above
+   * copyright notice and this permission notice appear in all copies.
+   * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+   * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+   * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+   * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+   * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+   * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+   * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+   */
+  const themeIcon = '<path d="M12 2v2M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715M16 12a4 4 0 0 0-4-4m7-3-1.256 1.256M20 12h2"/>';
   const icons = {
     auto: '<rect x="2" y="3" width="16" height="11" rx="2"/><path d="M7 18h6m-3-4v4"/>',
     light: '<circle cx="10" cy="10" r="3.5"/><path d="M10 1v2m0 14v2M1 10h2m14 0h2M3.6 3.6 5 5m10 10 1.4 1.4M3.6 16.4 5 15M15 5l1.4-1.4"/>',
@@ -35,10 +49,11 @@
       if (select) select.value = mode;
     }
     for (const button of document.querySelectorAll(".theme-trigger")) {
-      button.querySelector(".theme-current-icon").innerHTML = icons[mode];
-      button.querySelector(".theme-label").textContent = labels[mode];
-      button.title = `Appearance: ${labels[mode]}`;
-      button.setAttribute("aria-label", button.title);
+      button.querySelector(".theme-current-icon").innerHTML = themeIcon;
+      button.querySelector(".theme-current-icon").setAttribute("viewBox", "0 0 24 24");
+      button.querySelector(".theme-label").textContent = "Theme";
+      button.title = `Theme: ${labels[mode]}`;
+      button.setAttribute("aria-label", `Choose theme: ${labels[mode]}`);
     }
     for (const item of document.querySelectorAll(".theme-option")) {
       item.setAttribute("aria-checked", String(item.dataset.mode === mode));
@@ -73,7 +88,7 @@
     menu.id = `${select.id}-menu`;
     menu.className = "theme-menu";
     menu.setAttribute("role", "menu");
-    menu.setAttribute("aria-label", "Appearance");
+    menu.setAttribute("aria-label", "Theme");
     menu.hidden = true;
     const items = Object.keys(labels).map(value => {
       const item = document.createElement("button");

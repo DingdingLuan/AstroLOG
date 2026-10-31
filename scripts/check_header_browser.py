@@ -10,10 +10,11 @@ from check_theme_browser import BrowserFixture
 
 class HeaderTests(BrowserFixture, unittest.TestCase):
     def open_header(self, page, name):
-        page.goto(self.url(urlencode({'server_name': name})))
+        page.goto(self.url(urlencode({'server_name': name, 'signed_in':'1'})), wait_until='domcontentloaded', timeout=60000)
         page.locator('#workspace').wait_for(state='visible')
         page.wait_for_function("document.querySelector('#connection-label').textContent==='Connected'")
         self.assertEqual(page.locator('#connection-server-name').inner_text(), name)
+        self.assertTrue(page.locator('#logout-button').is_visible())
 
     def test_complete_server_label_is_readable_across_viewports_and_themes(self):
         name = 'Tianhe Xingyi · via aureum'
@@ -59,6 +60,10 @@ class HeaderTests(BrowserFixture, unittest.TestCase):
         self.assertEqual(source.get_attribute('href'), 'https://github.com/DingdingLuan/AstroLOG')
         self.assertEqual(source.get_attribute('target'), '_blank')
         self.assertEqual(set(source.get_attribute('rel').split()), {'noopener', 'noreferrer'})
+        self.assertEqual(source.inner_text(), '')
+        self.assertEqual(source.locator('svg[data-brand="github"]').get_attribute('viewBox'), '0 0 98 96')
+        self.assertEqual(source.locator('svg').evaluate('e=>getComputedStyle(e).stroke'), 'none')
+        self.assertNotEqual(source.locator('svg').evaluate('e=>getComputedStyle(e).fill'), 'none')
         self.assertEqual(page.locator('meta[name="astrolog-ui-version"]').get_attribute('content'), '0.4.2')
 
 

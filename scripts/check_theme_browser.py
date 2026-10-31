@@ -16,6 +16,8 @@ window.fetch=async(input,options={})=>{
  const url=new URL(String(input),location.href),query=new URL(location).searchParams;
  if(url.pathname.endsWith('/api/auth/status') && query.has('gate'))
   return new Response(JSON.stringify({enabled:true,authenticated:false}),{status:200});
+ if(url.pathname.endsWith('/api/auth/status') && query.has('signed_in'))
+  return new Response(JSON.stringify({enabled:true,authenticated:true}),{status:200});
  const response=await originalThemeFetch(input,options);
  if(url.pathname.endsWith('/api/config')){
   const doc=await response.json();doc.display.theme=query.get('server_theme')||'light';
@@ -85,7 +87,7 @@ class BrowserFixture:
     def choose(self, page, value, gate=False):
         prefix = '#auth-theme-mode' if gate else '#theme-mode'
         page.locator(prefix + '-trigger').click()
-        page.locator(prefix + '-menu').get_by_role('menuitemradio', name={'auto':'System','light':'Light','dark':'Dark'}[value], exact=True).click()
+        page.locator(prefix + '-menu').get_by_role('menuitemradio', name={'auto':'Follow system','light':'Light','dark':'Dark'}[value], exact=True).click()
 
     def expect(self, page, color, mode='auto'):
         page.wait_for_function("expected=>document.documentElement.dataset.theme===expected[0] && document.documentElement.dataset.themeMode===expected[1]", arg=[color, mode])
@@ -211,9 +213,9 @@ class ThemeTests(BrowserFixture, unittest.TestCase):
                 menu = page.locator('#theme-mode-menu')
                 self.assertTrue(menu.is_visible())
                 self.assertEqual(menu.get_by_role('menuitemradio').count(), 3)
-                for label in ['System', 'Light', 'Dark']:
+                for label in ['Follow system', 'Light', 'Dark']:
                     self.assertTrue(menu.get_by_role('menuitemradio', name=label, exact=True).is_visible())
-                self.assertEqual(menu.locator('[aria-checked="true"]').inner_text(), 'System')
+                self.assertEqual(menu.locator('[aria-checked="true"]').inner_text(), 'Follow system')
                 layout = menu.evaluate('''e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return {
                   fits:r.left>=11 && r.right<=innerWidth-11 && r.top>=11 && r.bottom<=innerHeight-11,
                   solid:s.backgroundColor===getComputedStyle(document.querySelector('.viewer-card')).backgroundColor,
@@ -234,7 +236,7 @@ class ThemeTests(BrowserFixture, unittest.TestCase):
         trigger = page.locator('#theme-mode-trigger')
         trigger.focus()
         page.keyboard.press('ArrowDown')
-        self.assertEqual(page.locator(':focus').inner_text(), 'System')
+        self.assertEqual(page.locator(':focus').inner_text(), 'Follow system')
         page.keyboard.press('ArrowDown')
         self.assertEqual(page.locator(':focus').inner_text(), 'Light')
         page.keyboard.press('End')
@@ -298,6 +300,20 @@ class ThemeTests(BrowserFixture, unittest.TestCase):
         page.locator('#theme-mode-trigger').click()
         page.evaluate("document.dispatchEvent(new Event('scroll'))")
         self.assertFalse(page.locator('#theme-mode-menu').is_visible())
+
+    def test_theme_action_stays_explicit_on_mobile_and_desktop(self):
+        for width in [320, 390, 1360]:
+            page = self.page(width=width)
+            for gate in [True, False]:
+                self.open(page, gate=gate)
+                prefix = '#auth-theme-mode' if gate else '#theme-mode'
+                button = page.locator(prefix + '-trigger')
+                for mode in ['auto', 'light', 'dark']:
+                    self.choose(page, mode, gate=gate)
+                    self.assertEqual(button.inner_text(), 'Theme')
+                    self.assertTrue(button.locator('.theme-label').is_visible())
+                    self.assertTrue(button.get_attribute('aria-label').startswith('Choose theme:'))
+                    self.assertEqual(button.locator('.theme-current-icon').get_attribute('viewBox'), '0 0 24 24')
 
 
 if __name__ == '__main__':
