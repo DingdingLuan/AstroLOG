@@ -2,7 +2,8 @@ include README.md README.zh-CN.md CHANGELOG.md LICENSE requirements*.txt
 recursive-include web *
 recursive-include config *.yaml
 recursive-include scripts *.py *.sh
-recursive-include brand *.png
+recursive-include brand *.png *.svg *.md
+include docs/astrolog-mark.svg docs/astrolog-mark-512.png
 recursive-include content *.md
 recursive-include deploy *.example
 recursive-include tests *.py

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2 - 2026-10-31
+
+- Replace native appearance popups with consistent themed menus on the login screen and workspace, including keyboard navigation, checked states, and small-screen positioning.
+- Put the actual AstroLOG logo in `brand/`, keep its shared ring build input in `brand/source/`, and document stable SVG/PNG links.
+- Check that published logo copies stay identical to the canonical web assets.
+
 ## 0.4.1 - 2026-10-31
 
 - Display the complete server and relay label with readable type and wrapping on small screens.

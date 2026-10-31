@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "astrolog-viewer"
-version = "0.4.1"
+version = "0.4.2"
 description = "A configurable, read-only live log viewer for long-running work"
 readme = "README.md"
 license = {file = "LICENSE"}

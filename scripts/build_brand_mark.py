@@ -16,7 +16,7 @@ COLOR = "#f48120"
 
 
 def main() -> None:
-    source = PROJECT / "brand/astroslacker-ring-source.png"
+    source = PROJECT / "brand/source/astroslacker-ring-source.png"
     encoded = base64.b64encode(source.read_bytes()).decode("ascii")
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 1024 1024" fill="none">
   <title>AstroLOG</title>

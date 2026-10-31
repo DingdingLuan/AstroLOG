@@ -79,8 +79,13 @@ class BrowserFixture:
 
     def open(self, page, gate=False, extra=''):
         page.goto(self.url(('gate=1&' if gate else '') + extra))
-        page.locator('#auth-theme-mode' if gate else '#theme-mode').wait_for(state='visible')
+        page.locator('#auth-theme-mode-trigger' if gate else '#theme-mode-trigger').wait_for(state='visible')
         page.wait_for_function("Boolean(document.querySelector('#theme-mode').dataset.bound)")
+
+    def choose(self, page, value, gate=False):
+        prefix = '#auth-theme-mode' if gate else '#theme-mode'
+        page.locator(prefix + '-trigger').click()
+        page.locator(prefix + '-menu').get_by_role('menuitemradio', name={'auto':'System','light':'Light','dark':'Dark'}[value], exact=True).click()
 
     def expect(self, page, color, mode='auto'):
         page.wait_for_function("expected=>document.documentElement.dataset.theme===expected[0] && document.documentElement.dataset.themeMode===expected[1]", arg=[color, mode])
@@ -113,11 +118,11 @@ class ThemeTests(BrowserFixture, unittest.TestCase):
     def test_manual_choice_is_remembered_and_system_can_be_restored(self):
         page = self.page()
         self.open(page)
-        page.locator('#theme-mode').select_option('light')
+        self.choose(page, 'light')
         self.expect(page, 'light', 'light')
         page.reload()
         self.expect(page, 'light', 'light')
-        page.locator('#theme-mode').select_option('auto')
+        self.choose(page, 'auto')
         self.expect(page, 'dark')
         page.emulate_media(color_scheme='light')
         self.expect(page, 'light')
@@ -141,13 +146,13 @@ class ThemeTests(BrowserFixture, unittest.TestCase):
         self.expect(page, 'dark')
         page.emulate_media(color_scheme='light')
         self.expect(page, 'light')
-        page.locator('#theme-mode').select_option('dark')
+        self.choose(page, 'dark')
         self.expect(page, 'dark', 'dark')
 
     def test_login_control_and_workspace_control_share_preference(self):
         page = self.page()
         self.open(page, gate=True)
-        page.locator('#auth-theme-mode').select_option('light')
+        self.choose(page, 'light', gate=True)
         self.expect(page, 'light', 'light')
         self.open(page)
         self.expect(page, 'light', 'light')
@@ -157,9 +162,9 @@ class ThemeTests(BrowserFixture, unittest.TestCase):
         self.open(page)
         other = page.context.new_page()
         self.open(other)
-        page.locator('#theme-mode').select_option('light')
+        self.choose(page, 'light')
         self.expect(other, 'light', 'light')
-        other.locator('#theme-mode').select_option('auto')
+        self.choose(other, 'auto')
         self.expect(page, 'dark')
 
     def test_system_theme_is_applied_before_main_application_loads(self):
@@ -188,12 +193,96 @@ class ThemeTests(BrowserFixture, unittest.TestCase):
                 page.emulate_media(color_scheme=color)
                 self.expect(page, color)
                 self.assertTrue(page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'))
-                control = page.locator('#auth-theme-mode' if gate else '#theme-mode').bounding_box()
+                control = page.locator('#auth-theme-mode-trigger' if gate else '#theme-mode-trigger').bounding_box()
                 self.assertGreaterEqual(control['x'], 0)
                 self.assertLessEqual(control['x'] + control['width'], 391)
                 if evidence:
                     Path(evidence).mkdir(parents=True, exist_ok=True)
                     page.screenshot(path=str(Path(evidence) / f'theme-mobile-{color}-{"login" if gate else "workspace"}.png'), full_page=True)
+
+    def test_open_menu_fits_all_viewports_and_themes(self):
+        for width in [320, 390, 768, 1360]:
+            page = self.page(width=width)
+            self.open(page)
+            for color in ['light', 'dark']:
+                page.emulate_media(color_scheme=color)
+                self.expect(page, color)
+                page.locator('#theme-mode-trigger').click()
+                menu = page.locator('#theme-mode-menu')
+                self.assertTrue(menu.is_visible())
+                self.assertEqual(menu.get_by_role('menuitemradio').count(), 3)
+                for label in ['System', 'Light', 'Dark']:
+                    self.assertTrue(menu.get_by_role('menuitemradio', name=label, exact=True).is_visible())
+                self.assertEqual(menu.locator('[aria-checked="true"]').inner_text(), 'System')
+                layout = menu.evaluate('''e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return {
+                  fits:r.left>=11 && r.right<=innerWidth-11 && r.top>=11 && r.bottom<=innerHeight-11,
+                  solid:s.backgroundColor===getComputedStyle(document.querySelector('.viewer-card')).backgroundColor,
+                  labels:[...e.querySelectorAll('.theme-option-label')].every(x=>getComputedStyle(x).display!=='none')
+                }}''')
+                self.assertTrue(layout['fits'] and layout['labels'], (width,color,layout))
+                self.assertNotEqual(menu.evaluate('e=>getComputedStyle(e).backgroundColor'), 'rgba(0, 0, 0, 0)')
+                evidence = os.environ.get('ASTROLOG_BROWSER_EVIDENCE')
+                if evidence:
+                    Path(evidence).mkdir(parents=True, exist_ok=True)
+                    page.screenshot(path=str(Path(evidence) / f'appearance-menu-{width}-{color}.png'))
+                    self.assertTrue(menu.is_visible())
+                page.keyboard.press('Escape')
+
+    def test_menu_keyboard_navigation_selection_and_escape(self):
+        page = self.page()
+        self.open(page)
+        trigger = page.locator('#theme-mode-trigger')
+        trigger.focus()
+        page.keyboard.press('ArrowDown')
+        self.assertEqual(page.locator(':focus').inner_text(), 'System')
+        page.keyboard.press('ArrowDown')
+        self.assertEqual(page.locator(':focus').inner_text(), 'Light')
+        page.keyboard.press('End')
+        self.assertEqual(page.locator(':focus').inner_text(), 'Dark')
+        page.keyboard.press('Home')
+        page.keyboard.press('ArrowDown')
+        page.keyboard.press('Enter')
+        self.expect(page, 'light', 'light')
+        self.assertEqual(page.locator(':focus').get_attribute('id'), 'theme-mode-trigger')
+        page.keyboard.press('ArrowUp')
+        page.keyboard.press('Escape')
+        self.assertFalse(page.locator('#theme-mode-menu').is_visible())
+        self.assertEqual(trigger.get_attribute('aria-expanded'), 'false')
+
+    def test_outside_click_and_tab_dismiss_without_changing_preference(self):
+        page = self.page()
+        self.open(page)
+        page.locator('#theme-mode-trigger').click()
+        page.locator('#project-title').click()
+        self.assertFalse(page.locator('#theme-mode-menu').is_visible())
+        self.expect(page, 'dark')
+        page.locator('#theme-mode-trigger').click()
+        page.keyboard.press('Tab')
+        self.assertFalse(page.locator('#theme-mode-menu').is_visible())
+        self.assertNotEqual(page.locator(':focus').get_attribute('role'), 'menuitemradio')
+        self.expect(page, 'dark')
+
+    def test_login_menu_repositions_in_short_viewport(self):
+        page = self.page(width=320)
+        page.set_viewport_size({'width':320,'height':600})
+        self.open(page, gate=True)
+        page.locator('#auth-theme-mode-trigger').click()
+        menu = page.locator('#auth-theme-mode-menu')
+        self.assertTrue(menu.is_visible())
+        box = menu.bounding_box()
+        self.assertGreaterEqual(box['y'], 12)
+        self.assertLessEqual(box['y'] + box['height'], 589)
+        menu.get_by_role('menuitemradio', name='Light', exact=True).click()
+        self.expect(page, 'light', 'light')
+
+    def test_rebinding_does_not_duplicate_controls(self):
+        page = self.page()
+        self.open(page)
+        page.evaluate('AstroLOGTheme.bind();AstroLOGTheme.bind()')
+        self.assertEqual(page.locator('.theme-trigger').count(), 2)
+        self.assertEqual(page.locator('.theme-menu').count(), 2)
+        self.choose(page, 'light')
+        self.expect(page, 'light', 'light')
 
 
 if __name__ == '__main__':

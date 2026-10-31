@@ -2,7 +2,7 @@
 
 [English](#english) · [中文](#中文) · [Live demo](https://dingdingluan.github.io/AstroLOG/)
 
-[Changelog](CHANGELOG.md)
+[Changelog](CHANGELOG.md) · [Logo and brand links](brand/README.md)
 
 ![AstroLOG demo](assets/screenshot.png)
 

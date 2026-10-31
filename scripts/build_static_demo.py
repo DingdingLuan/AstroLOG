@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the public, browser-only synthetic demo in docs/ (stdlib only)."""
+"""Sync public brand assets and build the browser-only demo (stdlib only)."""
 from pathlib import Path
 import shutil
 
@@ -9,6 +9,10 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     destination = ROOT / "docs"
     destination.mkdir(exist_ok=True)
+    brand = ROOT / "brand"
+    brand.mkdir(exist_ok=True)
+    for name in ("astrolog-mark.svg", "astrolog-mark-512.png"):
+        shutil.copy2(ROOT / "web" / name, brand / name)
     for source in (ROOT / "web").iterdir():
         if source.is_file() and source.name != "theme.js" and source.suffix in {".html", ".css", ".js", ".svg", ".png", ".ico"}:
             shutil.copy2(source, destination / source.name)

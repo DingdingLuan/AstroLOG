@@ -27,7 +27,7 @@ class HeaderTests(BrowserFixture, unittest.TestCase):
                   const label=document.querySelector('#connection-server-name'),badge=label.parentElement;
                   const style=getComputedStyle(badge),rect=badge.getBoundingClientRect();
                   const source=document.querySelector('.source-link').getBoundingClientRect();
-                  const theme=document.querySelector('#theme-mode').getBoundingClientRect();
+                  const theme=document.querySelector('#theme-mode-trigger').getBoundingClientRect();
                   const tabs=document.querySelector('.tabs').getBoundingClientRect();
                   return {fits:document.documentElement.scrollWidth<=innerWidth+1,
                     labelFits:label.scrollWidth<=label.clientWidth+1 && label.scrollHeight<=label.clientHeight+1,
@@ -59,7 +59,7 @@ class HeaderTests(BrowserFixture, unittest.TestCase):
         self.assertEqual(source.get_attribute('href'), 'https://github.com/DingdingLuan/AstroLOG')
         self.assertEqual(source.get_attribute('target'), '_blank')
         self.assertEqual(set(source.get_attribute('rel').split()), {'noopener', 'noreferrer'})
-        self.assertEqual(page.locator('meta[name="astrolog-ui-version"]').get_attribute('content'), '0.4.1')
+        self.assertEqual(page.locator('meta[name="astrolog-ui-version"]').get_attribute('content'), '0.4.2')
 
 
 if __name__ == '__main__':
