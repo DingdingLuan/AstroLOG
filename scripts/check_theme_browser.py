@@ -19,6 +19,7 @@ window.fetch=async(input,options={})=>{
  const response=await originalThemeFetch(input,options);
  if(url.pathname.endsWith('/api/config')){
   const doc=await response.json();doc.display.theme=query.get('server_theme')||'light';
+  if(query.has('server_name'))doc.display.server_name=query.get('server_name');
   return new Response(JSON.stringify(doc),{status:200});
  }
  return response;
@@ -43,7 +44,7 @@ class Handler(ScrollHandler):
         self.wfile.write(data)
 
 
-class ThemeTests(unittest.TestCase):
+class BrowserFixture:
     @classmethod
     def setUpClass(cls):
         cls.server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
@@ -87,6 +88,8 @@ class ThemeTests(unittest.TestCase):
         self.assertEqual(page.locator('#theme-mode').input_value(), mode)
         self.assertEqual(page.locator('#auth-theme-mode').input_value(), mode)
 
+
+class ThemeTests(BrowserFixture, unittest.TestCase):
     def test_dark_login_defaults_to_system(self):
         page = self.page()
         self.open(page, gate=True)

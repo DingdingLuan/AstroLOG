@@ -1,4 +1,4 @@
-include README.md README.zh-CN.md LICENSE requirements*.txt
+include README.md README.zh-CN.md CHANGELOG.md LICENSE requirements*.txt
 recursive-include web *
 recursive-include config *.yaml
 recursive-include scripts *.py *.sh

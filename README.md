@@ -2,6 +2,8 @@
 
 [English](#english) · [中文](#中文) · [Live demo](https://dingdingluan.github.io/AstroLOG/)
 
+[Changelog](CHANGELOG.md)
+
 ![AstroLOG demo](assets/screenshot.png)
 
 ## English
@@ -136,6 +138,7 @@ Optional scrolling, snapshot-refresh, and appearance checks use only synthetic b
 .venv/bin/python -m playwright install chromium
 .venv/bin/python scripts/check_scroll_browser.py
 .venv/bin/python scripts/check_theme_browser.py
+.venv/bin/python scripts/check_header_browser.py
 ```
 
 Set `ASTROLOG_BROWSER_CHANNEL=chrome` to use an existing Chrome installation instead.
